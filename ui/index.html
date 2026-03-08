@@ -1,0 +1,731 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Gatling API Test UI</title>
+  <style>
+    :root {
+      --bg:#eef3f9;
+      --bg-accent:#d8e4f3;
+      --panel:#ffffff;
+      --panel-soft:#f6f9fc;
+      --line:#d9e2ec;
+      --line-strong:#c5d1de;
+      --text:#0f172a;
+      --muted:#5b6b7c;
+      --accent:#0f5cc0;
+      --accent2:#0b4b9c;
+      --accent-soft:#e8f0fb;
+      --success:#11845b;
+      --warning:#b7791f;
+      --danger:#c2413b;
+      --tab:#edf4fb;
+      --shadow:0 16px 40px rgba(15, 23, 42, 0.08);
+      --shadow-soft:0 6px 18px rgba(15, 23, 42, 0.06);
+      --radius:16px;
+    }
+    * { box-sizing:border-box; }
+    body {
+      margin:0;
+      font-family:"Aptos","Segoe UI Variable Text","Segoe UI",Tahoma,sans-serif;
+      color:var(--text);
+      background:
+        radial-gradient(circle at top left, rgba(15,92,192,0.08), transparent 28%),
+        radial-gradient(circle at top right, rgba(17,132,91,0.06), transparent 22%),
+        linear-gradient(180deg, #f6f9fc 0%, var(--bg) 42%, #e9eff6 100%);
+      min-height:100vh;
+    }
+    .wrap { max-width:1380px; margin:28px auto 40px; padding:0 20px; }
+    .card {
+      background:linear-gradient(180deg, #fff 0%, #fbfdff 100%);
+      border:1px solid var(--line);
+      border-radius:var(--radius);
+      padding:18px 20px;
+      margin-bottom:16px;
+      box-shadow:var(--shadow);
+      animation:rise .35s ease;
+      position:relative;
+      overflow:hidden;
+    }
+    .card::before {
+      content:"";
+      position:absolute;
+      inset:0 0 auto 0;
+      height:4px;
+      background:linear-gradient(90deg, var(--accent), #4c8de1, #7cb5e8);
+      opacity:.9;
+    }
+    h1,h2,h3 { margin:0 0 10px; letter-spacing:.1px; }
+    h1 { font-size:32px; color:var(--text); font-weight:800; }
+    h2 { color:var(--text); font-size:24px; font-weight:780; }
+    h3 { color:#203247; font-size:17px; font-weight:760; }
+    .grid { display:grid; gap:12px; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); }
+    label { font-size:11px; text-transform:uppercase; letter-spacing:.08em; color:var(--muted); display:block; margin-bottom:6px; font-weight:700; }
+    input,select,textarea,button {
+      width:100%;
+      padding:11px 12px;
+      border:1px solid var(--line);
+      border-radius:12px;
+      font-size:13px;
+      transition:all .2s ease;
+      background:#fff;
+      min-height:44px;
+    }
+    input:focus,select:focus,textarea:focus {
+      outline:none;
+      border-color:#8cb6eb;
+      box-shadow:0 0 0 4px rgba(15,92,192,0.12);
+      transform:translateY(-1px);
+    }
+    textarea { min-height:110px; }
+    button {
+      width:auto;
+      cursor:pointer;
+      background:linear-gradient(135deg,var(--accent),var(--accent2));
+      color:#fff;
+      border:0;
+      font-weight:700;
+      padding:11px 16px;
+      box-shadow:0 8px 20px rgba(15,92,192,0.18);
+    }
+    button:hover { transform:translateY(-1px); box-shadow:0 8px 14px rgba(37,99,235,0.22); }
+    button.secondary{ background:linear-gradient(135deg,#243446,#1b2735); box-shadow:0 8px 18px rgba(15,23,42,0.14); }
+    button.danger{ background:var(--danger); }
+    button.ghost{ background:#fff; color:#0f172a; border:1px solid var(--line-strong); box-shadow:none; }
+    .row { display:grid; grid-template-columns:1fr auto; gap:8px; align-items:center; }
+    .btns { display:flex; flex-wrap:wrap; gap:10px; margin-top:12px; }
+    .tabs { display:flex; gap:10px; margin-bottom:10px; flex-wrap:wrap; }
+    .tab-btn {
+      background:var(--tab);
+      color:#27405a;
+      font-weight:700;
+      border:1px solid #d6e4f4;
+      border-radius:999px;
+      padding:10px 16px;
+      min-height:auto;
+      box-shadow:none;
+    }
+    .tab-btn.active {
+      background:linear-gradient(135deg,var(--accent),var(--accent2));
+      color:#fff;
+      border-color:transparent;
+      box-shadow:0 10px 20px rgba(15,92,192,0.2);
+    }
+    .tab-panel { display:none; }
+    .tab-panel.active { display:block; animation:fadeIn .25s ease; }
+    .scenario,.endpoint{
+      border:1px solid var(--line);
+      border-radius:14px;
+      padding:14px;
+      margin-top:12px;
+      background:linear-gradient(180deg, #ffffff 0%, var(--panel-soft) 100%);
+      box-shadow:var(--shadow-soft);
+    }
+    .endpoint-summary {
+      margin:8px 0 12px;
+      color:var(--muted);
+      font-size:12px;
+      padding:10px 12px;
+      border-radius:12px;
+      background:#f0f5fb;
+      border:1px solid #dce7f4;
+    }
+    .section-chips {
+      display:flex;
+      flex-wrap:wrap;
+      gap:8px;
+      margin:12px 0;
+    }
+    .section-chips button {
+      background:#fff;
+      color:#27405a;
+      border:1px solid var(--line);
+      border-radius:999px;
+      padding:7px 12px;
+      box-shadow:none;
+    }
+    .endpoint details {
+      margin-top:10px;
+      border:1px solid #d9e5f2;
+      border-radius:12px;
+      background:#fff;
+      overflow:hidden;
+    }
+    .endpoint details.is-hidden {
+      display:none;
+    }
+    .endpoint details summary {
+      cursor:pointer;
+      padding:11px 13px;
+      font-weight:700;
+      color:#1f3349;
+      background:#f6f9fd;
+      border-bottom:1px solid #e8eef6;
+    }
+    .endpoint details > div {
+      padding:13px;
+    }
+    table {
+      width:100%;
+      border-collapse:separate;
+      border-spacing:0;
+      margin-top:10px;
+      background:#fff;
+      border-radius:14px;
+      overflow:hidden;
+      box-shadow:inset 0 0 0 1px var(--line), var(--shadow-soft);
+    }
+    th,td{ border-bottom:1px solid #edf2f7; padding:10px 9px; font-size:12px; vertical-align:top; }
+    th{ background:#f4f8fc; text-align:left; color:#27405a; font-weight:800; }
+    tr:last-child td { border-bottom:0; }
+    .cards { display:grid; gap:10px; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); margin-top:12px; }
+    .kpi {
+      border:1px solid var(--line);
+      border-radius:14px;
+      padding:12px;
+      background:linear-gradient(180deg, #ffffff 0%, #f7fbff 100%);
+      box-shadow:var(--shadow-soft);
+    }
+    .kpi .k{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;}
+    .kpi .v{font-size:28px;font-weight:800;color:#10233a;line-height:1.1;margin-top:4px;}
+    pre {
+      margin:0;
+      padding:14px;
+      border-radius:14px;
+      background:linear-gradient(180deg, #122033 0%, #0f1b2d 100%);
+      color:#dbf1e4;
+      white-space:pre-wrap;
+      border:1px solid #31435b;
+      box-shadow:var(--shadow-soft);
+    }
+    .small{font-size:12px;color:var(--muted);line-height:1.55;}
+    .inline{display:flex;flex-wrap:wrap;gap:10px;align-items:end;}
+    iframe { background:#fff; box-shadow:var(--shadow-soft); }
+    .flow-page { display:none; }
+    .flow-page.active { display:block; }
+    body[data-ui-mode="basic"] [data-mode="advanced"],
+    body[data-ui-mode="basic"] [data-mode="expert"] { display:none !important; }
+    body[data-ui-mode="advanced"] [data-mode="expert"] { display:none !important; }
+    .app-hero {
+      display:grid;
+      grid-template-columns:minmax(0, 1.6fr) minmax(280px, 1fr);
+      gap:18px;
+      align-items:center;
+    }
+    .app-hero::before {
+      background:linear-gradient(90deg, #0f5cc0, #2b75d6, #6fa9ea);
+    }
+    .hero-title {
+      display:flex;
+      flex-direction:column;
+      gap:12px;
+    }
+    .hero-kicker {
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      width:max-content;
+      padding:6px 10px;
+      border-radius:999px;
+      border:1px solid #cfe0f3;
+      background:#f2f7fd;
+      color:#29507a;
+      font-size:11px;
+      font-weight:800;
+      text-transform:uppercase;
+      letter-spacing:.08em;
+    }
+    .hero-subtitle {
+      max-width:760px;
+      font-size:14px;
+      color:#496176;
+      line-height:1.7;
+    }
+    .hero-metrics {
+      display:grid;
+      grid-template-columns:repeat(2, minmax(0, 1fr));
+      gap:10px;
+    }
+    .hero-metric {
+      padding:14px;
+      border-radius:14px;
+      border:1px solid var(--line);
+      background:linear-gradient(180deg, #fff 0%, #f6faff 100%);
+      box-shadow:var(--shadow-soft);
+    }
+    .hero-metric .label {
+      font-size:11px;
+      text-transform:uppercase;
+      letter-spacing:.08em;
+      color:var(--muted);
+      font-weight:800;
+    }
+    .hero-metric .value {
+      margin-top:6px;
+      font-size:20px;
+      font-weight:800;
+      color:#10233a;
+    }
+    .hero-metric .note {
+      margin-top:6px;
+      font-size:12px;
+      color:#617386;
+      line-height:1.5;
+    }
+    .section-lead {
+      max-width:860px;
+      margin-bottom:10px;
+      color:#516577;
+      font-size:13px;
+      line-height:1.6;
+    }
+    .mode-bar {
+      display:flex;
+      flex-wrap:wrap;
+      gap:10px;
+      align-items:center;
+      justify-content:space-between;
+      margin:12px 0 16px;
+      padding:12px 14px;
+      border:1px solid var(--line);
+      border-radius:14px;
+      background:linear-gradient(180deg, #fff 0%, #f4f8fd 100%);
+      box-shadow:var(--shadow-soft);
+    }
+    .mode-switch {
+      display:flex;
+      flex-wrap:wrap;
+      gap:8px;
+    }
+    .mode-switch button {
+      min-width:112px;
+      box-shadow:none;
+    }
+    .mode-hint {
+      max-width:780px;
+      color:#55697d;
+      font-size:12px;
+      line-height:1.6;
+    }
+    .guided-box {
+      margin:10px 0 14px;
+      padding:12px 14px;
+      border-radius:14px;
+      border:1px solid #dbe6f2;
+      background:linear-gradient(180deg, #f7fbff 0%, #eef5fd 100%);
+      color:#35506b;
+      font-size:12px;
+      line-height:1.65;
+    }
+    .raw-editor {
+      display:grid;
+      gap:10px;
+      margin-top:14px;
+      padding:14px;
+      border-radius:14px;
+      border:1px solid var(--line);
+      background:linear-gradient(180deg, #f8fbff 0%, #f2f7fd 100%);
+      box-shadow:var(--shadow-soft);
+    }
+    .raw-editor textarea {
+      min-height:320px;
+      font-family:Consolas,"Cascadia Mono","Courier New",monospace;
+      font-size:12px;
+      line-height:1.55;
+      background:#0f1b2d;
+      color:#dceefc;
+      border:1px solid #31435b;
+    }
+    .status-strip {
+      display:grid;
+      grid-template-columns:repeat(auto-fit,minmax(180px,1fr));
+      gap:10px;
+      margin:10px 0 14px;
+    }
+    .status-tile {
+      padding:12px 14px;
+      border-radius:14px;
+      border:1px solid var(--line);
+      background:linear-gradient(180deg, #ffffff 0%, #f6faff 100%);
+      box-shadow:var(--shadow-soft);
+    }
+    .status-tile .label {
+      font-size:11px;
+      text-transform:uppercase;
+      letter-spacing:.08em;
+      color:var(--muted);
+      font-weight:800;
+    }
+    .status-tile .value {
+      margin-top:6px;
+      font-size:18px;
+      font-weight:800;
+      color:#10233a;
+    }
+    .status-live {
+      margin:10px 0 14px;
+      padding:12px 14px;
+      border-radius:14px;
+      border:1px solid #d6e4f2;
+      background:linear-gradient(180deg, #f8fbff 0%, #eef5fd 100%);
+      color:#334e68;
+      font-size:13px;
+      line-height:1.6;
+    }
+    .diag-panel {
+      margin-top:12px;
+      border:1px solid var(--line);
+      border-radius:14px;
+      background:linear-gradient(180deg, #ffffff 0%, #f7fbff 100%);
+      box-shadow:var(--shadow-soft);
+      overflow:hidden;
+    }
+    .diag-panel summary {
+      cursor:pointer;
+      padding:12px 14px;
+      font-weight:800;
+      color:#21384f;
+      background:#f4f8fc;
+      border-bottom:1px solid #e4edf7;
+      user-select:none;
+    }
+    .diag-panel[open] summary {
+      border-bottom:1px solid #dbe6f2;
+    }
+    .diag-panel .diag-body {
+      padding:14px;
+    }
+    .artifact-panel {
+      margin-top:14px;
+      border:1px solid var(--line);
+      border-radius:14px;
+      background:linear-gradient(180deg, #ffffff 0%, #f7fbff 100%);
+      box-shadow:var(--shadow-soft);
+      overflow:hidden;
+    }
+    .artifact-panel summary {
+      cursor:pointer;
+      padding:12px 14px;
+      font-weight:800;
+      color:#21384f;
+      background:#f4f8fc;
+      border-bottom:1px solid #e4edf7;
+      user-select:none;
+    }
+    .artifact-panel[open] summary {
+      border-bottom:1px solid #dbe6f2;
+    }
+    .artifact-body {
+      padding:14px;
+      display:grid;
+      gap:10px;
+    }
+    .saved-suite-panel {
+      margin-top:14px;
+      padding:14px;
+      border-radius:14px;
+      border:1px solid var(--line);
+      background:linear-gradient(180deg, #ffffff 0%, #f7fbff 100%);
+      box-shadow:var(--shadow-soft);
+    }
+    .saved-suite-meta {
+      margin-top:8px;
+      padding:10px 12px;
+      border-radius:12px;
+      border:1px solid #dbe6f2;
+      background:#f4f8fc;
+      color:#42596f;
+      font-size:12px;
+      line-height:1.6;
+    }
+    @keyframes rise { from { opacity:0; transform:translateY(7px);} to { opacity:1; transform:translateY(0);} }
+    @keyframes fadeIn { from { opacity:0; transform:translateY(4px);} to { opacity:1; transform:translateY(0);} }
+    @media (max-width: 980px) {
+      .app-hero { grid-template-columns:1fr; }
+      .hero-metrics { grid-template-columns:1fr 1fr; }
+    }
+    @media (max-width: 640px) {
+      .wrap { padding:0 14px; }
+      .card { padding:16px; }
+      .hero-metrics { grid-template-columns:1fr; }
+      .kpi .v { font-size:22px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card app-hero">
+      <div class="hero-title">
+        <div class="hero-kicker">Enterprise Gatling Workspace</div>
+        <h1>Gatling API Performance UI</h1>
+        <div class="hero-subtitle">Configure environments, build scenario-driven API workloads, generate Gatling assets, and review real execution results from a single operational workspace.</div>
+      </div>
+      <div class="hero-metrics">
+        <div class="hero-metric">
+          <div class="label">Configuration Model</div>
+          <div class="value">Multi-App</div>
+          <div class="note">Shared service baselines, reusable injection profiles, and environment-specific overrides.</div>
+        </div>
+        <div class="hero-metric">
+          <div class="label">Execution Modes</div>
+          <div class="value">Preview + Real Run</div>
+          <div class="note">Use browser preview for rapid checks and backend Gatling runs for actual performance reports.</div>
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <h2>Test Flow</h2>
+      <div class="section-lead">Move through the workflow in order: establish service defaults, compose scenarios, generate executable artifacts, and review resulting performance evidence.</div>
+      <div class="tabs" id="flowTabs">
+        <button class="tab-btn flow-tab active" data-page="1" type="button">1. Apps & Service</button>
+        <button class="tab-btn flow-tab" data-page="2" type="button">2. Load & Scenarios</button>
+        <button class="tab-btn flow-tab" data-page="3" type="button">3. Run Setup</button>
+        <button class="tab-btn flow-tab" data-page="4" type="button">4. Reports</button>
+      </div>
+      <div class="btns">
+        <button class="ghost" id="flowPrevBtn" type="button">Previous</button>
+        <button class="secondary" id="flowNextBtn" type="button">Next</button>
+      </div>
+      <div class="small" id="flowHint">Step 1 of 4</div>
+    </div>
+
+    <div class="card flow-page" data-page="1">
+      <h1>Gatling API Performance UI</h1>
+      <div class="small">Guided setup for multi-app, multi-environment API load testing.</div>
+      <div class="grid" style="margin-top:10px;">
+        <div>
+          <h3>Step 1: Add Applications</h3>
+          <div class="small">Create each app once and provide its base URL in the Applications table.</div>
+        </div>
+        <div>
+          <h3>Step 2: Define Load</h3>
+          <div class="small">Create Injection Profiles, then map every scenario to one profile.</div>
+        </div>
+        <div>
+          <h3>Step 3: Run</h3>
+          <div class="small">Use Run Concurrent Hits (preview) or Run Real Load (actual Gatling).</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card flow-page" data-page="1">
+      <h2>Service Baseline + Assertions</h2>
+      <div class="small">This baseline applies to active app and is merged with selected environment overrides.</div>
+      <div class="grid">
+        <div><label>Base URL</label><input id="baseUrl" value="https://jsonplaceholder.typicode.com" /></div>
+        <div><label>Auth Type</label><select id="authType"><option value="">none</option><option value="bearer">bearer</option><option value="basic">basic</option><option value="header">header</option></select></div>
+        <div><label>Bearer Token Env</label><input id="tokenEnv" value="API_TOKEN" /></div>
+        <div><label>Basic Username Env</label><input id="authUsernameEnv" value="API_USER" /></div>
+        <div><label>Basic Password Env</label><input id="authPasswordEnv" value="API_PASSWORD" /></div>
+        <div><label>Header Name</label><input id="authHeaderName" value="x-api-key" /></div>
+        <div><label>Header Value Env</label><input id="authHeaderValueEnv" value="API_KEY" /></div>
+        <div><label>UI Iterations per Scenario</label><input id="iterations" type="number" value="3" min="1" /></div>
+        <div><label>Min Success %</label><input id="minSuccess" type="number" value="99" min="0" max="100" /></div>
+        <div><label>Min Requests/Sec</label><input id="minRps" type="number" value="0" min="0" step="0.1" /></div>
+        <div><label>Max RT (ms)</label><input id="maxRt" type="number" value="2000" min="1" /></div>
+        <div><label>P90 RT (ms)</label><input id="p90" type="number" value="0" min="0" /></div>
+        <div><label>P95 RT (ms)</label><input id="p95" type="number" value="1200" min="1" /></div>
+        <div><label>P99 RT (ms)</label><input id="p99" type="number" value="0" min="0" /></div>
+        <div><label>Max Failed Requests</label><input id="maxFailed" type="number" value="0" min="0" /></div>
+      </div>
+      <div class="small">`UI Iterations` is only for browser preview run. Gatling backend run uses injection profile settings.</div>
+    </div>
+
+    <div class="card flow-page" data-page="1">
+      <h2>Applications</h2>
+      <div class="small">Set each app base URL once here. Switch Active app to configure scenarios/environments under that app.</div>
+      <table>
+        <thead><tr><th>Enabled</th><th>Active</th><th>App Name</th><th>Base URL (Set Once)</th><th>Action</th></tr></thead>
+        <tbody id="appRowsBody"></tbody>
+      </table>
+      <div class="btns"><button id="addAppBtn" type="button">Add Application</button></div>
+    </div>
+
+    <div class="card flow-page" data-page="2">
+      <div class="small" id="activeAppLabel">Editing details for: -</div>
+      <div id="validationBox" class="small" style="margin:8px 0; color:#9a3412;"></div>
+      <div class="mode-bar">
+        <div>
+          <label style="margin-bottom:8px;">Workspace Mode</label>
+          <div class="mode-switch">
+            <button class="tab-btn active mode-btn" id="modeBasicBtn" data-mode-target="basic" type="button">Basic</button>
+            <button class="tab-btn mode-btn" id="modeAdvancedBtn" data-mode-target="advanced" type="button">Advanced</button>
+            <button class="tab-btn mode-btn" id="modeExpertBtn" data-mode-target="expert" type="button">Expert / Raw</button>
+          </div>
+        </div>
+        <div class="mode-hint" id="modeHint">Basic mode keeps the workflow narrow: essential service fields, simple scenarios, and generated artifacts without advanced flow logic.</div>
+      </div>
+      <div class="tabs">
+        <button id="tabScenariosBtn" class="tab-btn active" type="button">Scenarios</button>
+        <button id="tabInjectBtn" class="tab-btn" type="button">Injection Profiles</button>
+        <button id="tabEnvsBtn" class="tab-btn" type="button">Environments</button>
+        <button id="tabHeadersBtn" class="tab-btn" type="button" data-mode="advanced">Headers</button>
+        <button id="tabCertsBtn" class="tab-btn" type="button" data-mode="advanced">Certificates</button>
+      </div>
+      <div id="tabScenarios" class="tab-panel active">
+        <h2>Scenarios</h2>
+        <div class="guided-box" id="guidedModeBox">Start with one scenario and one API step. Set the path, expected status, and an injection profile. Move to Advanced when you need branching, captures, or request-level tuning.</div>
+        <div class="small">Each scenario should contain at least one API step and one Injection Profile mapping.</div>
+        <div class="small">API cards are compact by default. Add optional items like headers, query params, form params, checks, captures, and uploads only when needed.</div>
+        <div class="small">New apps start with a `jsonplaceholder.typicode.com` sample scenario so you can verify YAML and Scala script generation immediately.</div>
+        <div id="scenarios"></div>
+        <div class="btns"><button id="addScenario">Add Scenario</button><button class="secondary" id="validateBtn">Validate Config</button><button class="secondary" id="runBtn">Run Concurrent Hits</button><button class="secondary" id="yamlBtn">Generate YAML</button><button class="secondary" id="downloadBtn">Download YAML</button></div>
+      </div>
+      <div id="tabInject" class="tab-panel">
+        <h2>Injection Profiles</h2>
+        <div class="small">Create Gatling-style load profiles and reuse them across scenarios in this app.</div>
+        <table>
+          <thead><tr><th>Name</th><th>Type</th><th>Users</th><th>Ramp Sec</th><th>Duration Sec</th><th>Pace Ms</th><th>Rate</th><th>From RPS</th><th>To RPS</th><th>Start Rate</th><th>Increment By</th><th>Levels</th><th>Level Sec</th><th>From Users</th><th>To Users</th><th>Action</th></tr></thead>
+          <tbody id="injectRowsBody"></tbody>
+        </table>
+        <div class="btns"><button id="addInjectBtn" type="button">Add Injection Profile</button></div>
+      </div>
+      <div id="tabHeaders" class="tab-panel">
+        <h2>Global Headers</h2>
+        <div class="small">Headers here apply to all API steps in the active app. Step-level headers override duplicates.</div>
+        <table><thead><tr><th>Key</th><th>Value</th><th>Action</th></tr></thead><tbody id="globalHeadersBody"></tbody></table>
+        <div class="btns"><button id="addGlobalHeader" type="button">Add Header</button></div>
+      </div>
+      <div id="tabEnvs" class="tab-panel">
+        <h2>Named Environments</h2>
+        <div class="small">Define environment-specific overrides and select which ones to execute in Run Concurrent Hits.</div>
+        <table>
+          <thead>
+            <tr>
+              <th>Enabled</th>
+              <th>Active</th>
+              <th>Name</th>
+              <th>Base URL</th>
+              <th>Auth Type</th>
+              <th>Auth Param 1</th>
+              <th>Auth Param 2</th>
+              <th>Header Name</th>
+              <th>Headers JSON</th>
+              <th>TLS Enabled</th>
+              <th>KeyStore</th>
+              <th>TrustStore</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody id="envRowsBody"></tbody>
+        </table>
+        <div class="btns"><button id="addEnvBtn" type="button">Add Environment</button></div>
+      </div>
+      <div id="tabCerts" class="tab-panel">
+        <h2>TLS Certificates</h2>
+        <div class="small">Use this only when target APIs require client cert/truststore or custom TLS behavior.</div>
+        <div class="grid">
+          <div><label>Enable TLS</label><select id="tlsEnabled"><option value="false">false</option><option value="true">true</option></select></div>
+          <div><label>KeyStore Path</label><input id="keyStorePath" /></div>
+          <div><label>KeyStore Type</label><input id="keyStoreType" value="PKCS12" /></div>
+          <div><label>KeyStore Password Env</label><input id="keyStorePasswordEnv" value="KEYSTORE_PASSWORD" /></div>
+          <div><label>TrustStore Path</label><input id="trustStorePath" /></div>
+          <div><label>TrustStore Type</label><input id="trustStoreType" value="JKS" /></div>
+          <div><label>TrustStore Password Env</label><input id="trustStorePasswordEnv" value="TRUSTSTORE_PASSWORD" /></div>
+          <div><label>Skip TLS Verify</label><select id="insecureSkipTlsVerify"><option value="false">false</option><option value="true">true</option></select></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card flow-page" data-page="4">
+      <h2>Run Results</h2>
+      <div id="reportsLiveStatus" class="status-live">No active run. Start a test to see live execution status and report updates here.</div>
+      <div class="status-strip">
+        <div class="status-tile"><div class="label">Test Status</div><div class="value" id="reportTestStatus">Idle</div></div>
+        <div class="status-tile"><div class="label">Current Run ID</div><div class="value" id="reportCurrentRunId">-</div></div>
+        <div class="status-tile"><div class="label">Backend Job ID</div><div class="value" id="reportJobId">-</div></div>
+        <div class="status-tile"><div class="label">Report Availability</div><div class="value" id="reportAvailability">Pending</div></div>
+      </div>
+      <div class="cards" id="reportCards"></div>
+      <div class="tabs" id="reportAppTabs"></div>
+      <div class="tabs" id="reportEnvTabs"></div>
+
+      <h3 style="margin-top:12px;">Per API Step</h3>
+      <table><thead><tr><th>Scenario</th><th>API</th><th>Total</th><th>Success</th><th>Success%</th><th>Min</th><th>Avg</th><th>P90</th><th>P95</th><th>P99</th><th>Max</th><th>Status Breakdown</th><th>Parity</th><th>Why</th></tr></thead><tbody id="resultsBody"></tbody></table>
+
+      <h3 style="margin-top:12px;">Scenario Summary</h3>
+      <table><thead><tr><th>Scenario</th><th>Total</th><th>Success</th><th>Success%</th><th>Avg</th><th>P95</th><th>Max</th></tr></thead><tbody id="scenarioSummaryBody"></tbody></table>
+
+      <h3 style="margin-top:12px;">Top Failure Reasons</h3>
+      <table><thead><tr><th>Reason</th><th>Count</th></tr></thead><tbody id="failureReasonsBody"></tbody></table>
+
+      <h3 style="margin-top:12px;">Parity Diagnostics</h3>
+      <table><thead><tr><th>Scenario/API</th><th>Warnings</th></tr></thead><tbody id="parityBody"></tbody></table>
+
+      <details class="diag-panel" open>
+        <summary>Run Diagnostics</summary>
+        <div class="diag-body">
+          <pre id="detailPanel">Run test and click Why on any row.</pre>
+        </div>
+      </details>
+      <h3 style="margin-top:12px;">Embedded Gatling Report</h3>
+      <iframe id="reportFrame" style="width:100%;height:480px;border:1px solid var(--line);border-radius:10px;background:#fff;" title="Gatling Report"></iframe>
+    </div>
+
+    <div class="card flow-page" data-page="3">
+      <h2>Run Setup</h2>
+      <div class="guided-box">Run Setup always shows generated YAML and Scala output. In Expert / Raw mode you can override the generated YAML directly for download and real Gatling execution.</div>
+      <div class="saved-suite-panel">
+        <h3>Saved Regression Suites</h3>
+        <div class="small">Save the current workspace as a reusable regression suite, reload it later, or execute a previously saved suite directly from this page.</div>
+        <div class="grid" style="margin-top:10px;">
+          <div>
+            <label>Suite Name</label>
+            <input id="savedSuiteName" placeholder="nightly-regression" />
+          </div>
+          <div>
+            <label>Saved Suites</label>
+            <select id="savedSuiteSelect">
+              <option value="">No saved suite selected</option>
+            </select>
+          </div>
+        </div>
+        <div class="btns">
+          <button class="secondary" id="saveSuiteBtn" type="button">Save Current Suite</button>
+          <button class="secondary" id="loadSuiteBtn" type="button">Load Selected Suite</button>
+          <button class="secondary" id="runSavedPreviewBtn" type="button">Run Saved Preview</button>
+          <button class="secondary" id="runSavedRealBtn" type="button">Run Saved Gatling</button>
+          <button class="ghost" id="deleteSuiteBtn" type="button">Delete Selected Suite</button>
+        </div>
+        <div class="saved-suite-meta" id="savedSuiteMeta">No saved regression suite selected.</div>
+      </div>
+      <div class="inline">
+        <div><label>UI Runner API</label><input id="runnerApiBase" value="http://127.0.0.1:8787" /></div>
+        <button class="secondary" id="startRunnerBtn">Start Runner</button>
+        <button class="secondary" id="checkRunnerBtn">Check Runner</button>
+        <button class="secondary" id="runRealBtn">Run Real Load (Gatling)</button>
+        <div><label>Gatling Report UI Link</label><input id="gatlingReportLink" placeholder="http://... or C:\path\index.html" /></div>
+        <button class="secondary" id="openGatlingReportBtn">Open Gatling Report</button>
+      </div>
+      <div id="realRunStatus" class="small">Real load run status will appear here. If runner is down, start `run-ui-backend.bat`.</div>
+      <div class="small">Preview runner supports `url`, `queryParams`, and `formParams`. Env-backed auth, multipart uploads, and local `bodyFile` paths may differ from backend execution.</div>
+      <details class="artifact-panel" open>
+        <summary>Generated Gatling YAML</summary>
+        <div class="artifact-body">
+          <div class="small">This is the canonical config produced from the structured builder. It is the configuration used by backend execution, YAML download, and Expert raw-mode override sync.</div>
+          <pre id="yamlOut"></pre>
+        </div>
+      </details>
+      <details class="artifact-panel" open>
+        <summary>Generated Scala Gatling Script</summary>
+        <div class="artifact-body">
+          <div class="small">This is a generated Scala Gatling `Simulation` class based on the current scenarios. It is intended for copy-paste use in IntelliJ or another IDE when you want a standalone script outside this UI workflow.</div>
+          <div class="btns"><button class="secondary" id="downloadScriptBtn" type="button">Download Scala Gatling Script</button></div>
+          <pre id="gatlingScriptOut"></pre>
+        </div>
+      </details>
+      <div class="raw-editor" id="rawYamlPanel" data-mode="expert">
+        <h2 style="margin:0;">Expert / Raw YAML Override</h2>
+        <div class="small">Use this only when you need a full-fidelity YAML escape hatch beyond the structured builder. When enabled, real runs and YAML download use this editor content directly. Scala script generation still comes from the structured UI model.</div>
+        <div class="inline">
+          <button class="secondary" id="syncRawYamlBtn" type="button">Sync Generated YAML Into Editor</button>
+          <button class="ghost" id="toggleRawYamlBtn" type="button">Use Raw YAML: Off</button>
+        </div>
+        <textarea id="rawYamlEditor" placeholder="Expert mode only. Paste or refine YAML here."></textarea>
+      </div>
+    </div>
+  </div>
+  <script src="./ui-app.js"></script>
+</body>
+</html>

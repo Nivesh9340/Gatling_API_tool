@@ -26,7 +26,6 @@ Config-driven API performance testing with Gatling Java DSL.
 - `src/test/resources/sample-config.yaml`: Example user-provided service/scenario config.
 - `src/test/resources/config-template.yaml`: Starter config with feeder + assertions.
 - `src/test/resources/my-api-config.yaml`: Your editable working config file.
-- `config/app.properties`: Runtime settings for UI gateway host/port and run/report directories.
 - `src/test/resources/data/users.csv`: Example feeder data.
 - `.github/workflows/gatling.yml`: GitHub Actions pipeline.
 - `Jenkinsfile`: Jenkins pipeline.
@@ -52,8 +51,6 @@ Portable launcher behavior:
 - `run-test.bat` auto-detects `mvn.cmd` or `mvn` from `PATH`, or accepts explicit Maven path.
 - `check-prerequisites.bat` treats Maven as optional when `target/ui-gateway-backend.jar` already exists.
 - Scripts use path-relative resolution (`%~dp0`) so they can run from any install location.
-- Runtime settings can be customized in `config/app.properties` or overridden with env vars (`UI_PORT`, `UI_HOST`, `UI_RUNS_DIR`, `UI_REPORTS_DIR`, `UI_CONFIG_FILE`).
-- `create-portable-bundle.bat` now writes `dist/latest-bundle.txt` and `dist/latest-bundle.sha256`.
 
 ## Run with sample config
 ```bash
@@ -230,9 +227,4 @@ run-test.bat src\test\resources\my-api-config.yaml "C:\path\to\mvn.cmd"
 Create a portable zip bundle:
 ```bat
 create-portable-bundle.bat
-```
-
-Build a full release bundle (precheck + package + checksum):
-```bat
-build-release.bat
 ```

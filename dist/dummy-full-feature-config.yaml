@@ -1,0 +1,116 @@
+applications:
+  orders-service:
+    enabled: true
+    service:
+      baseUrl: "https://qa.api.company.com"
+      defaultHeaders:
+        content-type: "application/json"
+        x-client-id: "perf-suite"
+      auth:
+        type: bearer
+        tokenEnv: API_TOKEN
+      tls:
+        enabled: true
+        trustStorePath: "C:/certs/qa-truststore.jks"
+        trustStoreType: JKS
+        trustStorePasswordEnv: TRUSTSTORE_PASSWORD
+        insecureSkipTlsVerify: false
+    assertions:
+      minSuccessPercent: 99
+      maxResponseTimeMs: 2000
+      p95ResponseTimeMs: 1200
+      p99ResponseTimeMs: 2000
+      maxFailedRequests: 0
+    environments:
+      qa:
+        enabled: true
+        baseUrl: "https://qa.api.company.com"
+      prod-like:
+        enabled: false
+        baseUrl: "https://prodlike.api.company.com"
+        auth:
+          type: header
+          headerName: "x-api-key"
+          headerValueEnv: "PRODLIKE_API_KEY"
+    injectionProfiles:
+      smoke_5:
+        injectionType: rampUsers
+        users: 5
+        rampSec: 15
+      baseline_20:
+        injectionType: rampUsers
+        users: 20
+        rampSec: 60
+      stress_80:
+        injectionType: rampUsers
+        users: 80
+        rampSec: 180
+    scenarios:
+      - name: "Order happy path"
+        enabled: true
+        feeder:
+          type: csv
+          file: "src/test/resources/data/users.csv"
+          mode: circular
+        load:
+          profileRef: baseline_20
+        flow:
+          exitOnFail: true
+        steps:
+          - name: "List orders"
+            method: GET
+            path: "/orders"
+            expectedStatus: 200
+            queryParams:
+              customerId: "#{customerId}"
+              page: "1"
+            checks:
+              - type: jsonPathExists
+                path: "$.items[0].id"
+            captures:
+              - jsonPath: "$.items[0].id"
+                saveAs: "orderId"
+              - jsonPath: "$.items[0].customerTier"
+                saveAs: "customerTier"
+          - name: "Route by tier"
+            method: GET
+            path: "/orders/#{orderId}"
+            expectedStatus: 200
+            branches:
+              - name: "Premium route"
+                when:
+                  variable: customerTier
+                  operator: equals
+                  value: premium
+                method: GET
+                path: "/orders/premium/#{orderId}"
+                expectedStatus: 200
+            elseMethod: GET
+            elsePath: "/orders/standard/#{orderId}"
+            elseExpectedStatus: 200
+            requestTimeoutMs: 30000
+            disableFollowRedirect: true
+          - name: "Create order"
+            method: POST
+            path: "/orders"
+            bodyFile: "src/test/resources/bodies/create-order.json"
+            bodyType: json
+            expectedStatus: 201
+            checks:
+              - type: bodyContains
+                value: "created"
+      - name: "Import orders"
+        enabled: true
+        load:
+          profileRef: smoke_5
+        steps:
+          - name: "Upload order file"
+            method: POST
+            path: "/orders/import"
+            bodyType: multipart
+            expectedStatus: 202
+            formParams:
+              source: "qa"
+            formUploads:
+              - fieldName: "file"
+                filePath: "src/test/resources/data/upload-sample.txt"

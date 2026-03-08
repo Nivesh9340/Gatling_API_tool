@@ -1,0 +1,39 @@
+# Build and runtime outputs
+target/
+dist/*.zip
+dist/latest-bundle.txt
+dist/latest-bundle.sha256
+
+# Node / Playwright
+node_modules/
+playwright-report/
+test-results/
+
+# Logs and temp
+*.log
+*.tmp
+*.temp
+*.pid
+
+# IDE/editor
+.vscode/
+.idea/
+*.iml
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Local certificates / secrets (keep samples in repo, not real secrets)
+*.p12
+*.pfx
+*.jks
+*.keystore
+*.pem
+*.key
+*.crt
+
+# Environment files
+.env
+.env.*

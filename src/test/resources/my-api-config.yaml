@@ -1,0 +1,144 @@
+applications:
+  app1:
+    enabled: true
+    service:
+      baseUrl: "https://api.replace-with-your-domain.com"
+      defaultHeaders:
+        Accept: "application/json"
+        Content-Type: "application/json"
+      # auth:
+      #   type: "bearer"
+      #   tokenEnv: "API_TOKEN"
+      # auth:
+      #   type: "basic"
+      #   usernameEnv: "API_USER"
+      #   passwordEnv: "API_PASSWORD"
+      # auth:
+      #   type: "header"
+      #   headerName: "x-api-key"
+      #   headerValueEnv: "API_KEY"
+      # tls:
+      #   enabled: true
+      #   keyStorePath: "C:\\certs\\client.p12"
+      #   keyStoreType: "PKCS12"
+      #   keyStorePasswordEnv: "KEYSTORE_PASSWORD"
+      #   trustStorePath: "C:\\certs\\truststore.jks"
+      #   trustStoreType: "JKS"
+      #   trustStorePasswordEnv: "TRUSTSTORE_PASSWORD"
+      #   insecureSkipTlsVerify: false
+    activeEnvironment: "dev"
+    injectionProfiles:
+      smoke_ramp:
+        injectionType: "rampUsers"
+        users: 20
+        rampDurationSec: 30
+      exact_60k_hour:
+        injectionType: "pacedUsers"
+        users: 10
+        durationSec: 3600
+        paceMs: 600
+    environments:
+      dev:
+        baseUrl: "https://dev.api.replace-with-your-domain.com"
+        defaultHeaders:
+          X-Env: "dev"
+      qa:
+        baseUrl: "https://qa.api.replace-with-your-domain.com"
+        defaultHeaders:
+          X-Env: "qa"
+    assertions:
+      minSuccessPercent: 99.0
+      maxResponseTimeMs: 3000
+      p95ResponseTimeMs: 1500
+    scenarios:
+      - name: "Read APIs"
+        load:
+          profileRef: "smoke_ramp"
+        feeder:
+          type: "csv"
+          file: "data/users.csv"
+          mode: "circular"
+        steps:
+          - name: "Service health"
+            method: "GET"
+            path: "/health"
+            expectedStatus: 200
+            checks:
+              - type: "bodyContains"
+                value: "ok"
+          - name: "List resources"
+            method: "GET"
+            path: "/v1/resources?tenant=#{tenant}"
+            expectedStatus: 200
+            captures:
+              - type: "jsonPath"
+                path: "$[0].id"
+                saveAs: "resourceId"
+          - name: "Filter resources"
+            method: "GET"
+            path: "/v1/resources"
+            queryParams:
+              tenant: "#{tenant}"
+              limit: "25"
+            expectedStatus: 200
+          - name: "Upload import file"
+            method: "POST"
+            path: "/v1/import"
+            bodyType: "multipart"
+            requestTimeoutMs: 30000
+            formParams:
+              tenant: "#{tenant}"
+            formUploads:
+              - fieldName: "file"
+                filePath: "src/test/resources/data/upload-sample.txt"
+            expectedStatus: 202
+
+  app2:
+    enabled: true
+    service:
+      baseUrl: "https://api2.replace-with-your-domain.com"
+      defaultHeaders:
+        Accept: "application/json"
+        Content-Type: "application/json"
+    activeEnvironment: "stage"
+    injectionProfiles:
+      exact_60k_hour:
+        injectionType: "pacedUsers"
+        users: 10
+        durationSec: 3600
+        paceMs: 600
+    environments:
+      stage:
+        baseUrl: "https://stage.api2.replace-with-your-domain.com"
+      prod:
+        baseUrl: "https://api2.replace-with-your-domain.com"
+    assertions:
+      minSuccessPercent: 98.5
+      maxResponseTimeMs: 3500
+      p95ResponseTimeMs: 1800
+    scenarios:
+      - name: "Write APIs"
+        load:
+          profileRef: "exact_60k_hour"
+        feeder:
+          type: "csv"
+          file: "data/users.csv"
+          mode: "random"
+        steps:
+          - name: "Create resource"
+            method: "POST"
+            path: "/v1/resources"
+            body: '{"name":"item-#{name}","ownerId":#{userId},"tenant":"#{tenant}","parent":"#{resourceId}"}'
+            bodyType: "json"
+            expectedStatus: 201
+            checks:
+              - type: "jsonPathExists"
+                path: "$.id"
+          - name: "Submit resource search"
+            method: "POST"
+            path: "/v1/resources/search"
+            bodyType: "form"
+            formParams:
+              tenant: "#{tenant}"
+              ownerId: "#{userId}"
+            expectedStatus: 200

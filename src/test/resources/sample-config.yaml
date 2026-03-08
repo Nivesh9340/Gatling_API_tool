@@ -1,0 +1,51 @@
+service:
+  baseUrl: "https://jsonplaceholder.typicode.com"
+  defaultHeaders:
+    Accept: "application/json"
+    Content-Type: "application/json"
+  # auth:
+  #   type: "header"
+  #   headerName: "x-api-key"
+  #   headerValueEnv: "JSONPLACEHOLDER_API_KEY"
+
+scenarios:
+  - name: "Read Posts"
+    load:
+      users: 20
+      rampDurationSec: 30
+    steps:
+      - name: "Get all posts"
+        method: "GET"
+        path: "/posts"
+        queryParams:
+          _limit: "10"
+        expectedStatus: 200
+        pauseMs: 500
+      - name: "Get first post"
+        method: "GET"
+        path: "/posts/1"
+        expectedStatus: 200
+      - name: "Get comments by absolute URL"
+        method: "GET"
+        url: "https://jsonplaceholder.typicode.com/comments"
+        queryParams:
+          postId: "1"
+        expectedStatus: 200
+
+  - name: "Create and Update Post"
+    load:
+      users: 10
+      rampDurationSec: 20
+    steps:
+      - name: "Create post"
+        method: "POST"
+        path: "/posts"
+        bodyFile: "src/test/resources/bodies/create-post.json"
+        bodyType: "json"
+        expectedStatus: 201
+        pauseMs: 300
+      - name: "Update post"
+        method: "PUT"
+        path: "/posts/1"
+        body: '{"id":1,"title":"updated","body":"updated","userId":1}'
+        expectedStatus: 200

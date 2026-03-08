@@ -1,0 +1,148 @@
+applications:
+  customer-api:
+    enabled: true
+    service:
+      baseUrl: "https://api.customer.example.com"
+      defaultHeaders:
+        Accept: "application/json"
+        Content-Type: "application/json"
+      # auth:
+      #   type: "bearer"
+      #   tokenEnv: "CUSTOMER_API_TOKEN"
+      # auth:
+      #   type: "basic"
+      #   usernameEnv: "CUSTOMER_API_USER"
+      #   passwordEnv: "CUSTOMER_API_PASSWORD"
+      # auth:
+      #   type: "header"
+      #   headerName: "x-api-key"
+      #   headerValueEnv: "CUSTOMER_API_KEY"
+      # tls:
+      #   enabled: true
+      #   keyStorePath: "C:\\certs\\customer-client.p12"
+      #   keyStoreType: "PKCS12"
+      #   keyStorePasswordEnv: "CUSTOMER_KEYSTORE_PASSWORD"
+      #   trustStorePath: "C:\\certs\\customer-truststore.jks"
+      #   trustStoreType: "JKS"
+      #   trustStorePasswordEnv: "CUSTOMER_TRUSTSTORE_PASSWORD"
+      #   insecureSkipTlsVerify: false
+    activeEnvironment: "qa"
+    injectionProfiles:
+      quick_ramp:
+        injectionType: "rampUsers"
+        users: 20
+        rampDurationSec: 45
+      exact_60k_hour:
+        injectionType: "pacedUsers"
+        users: 10
+        durationSec: 3600
+        paceMs: 600
+    environments:
+      dev:
+        baseUrl: "https://dev.customer.example.com"
+        defaultHeaders:
+          X-Env: "dev"
+      qa:
+        baseUrl: "https://qa.customer.example.com"
+        defaultHeaders:
+          X-Env: "qa"
+      stage:
+        baseUrl: "https://stage.customer.example.com"
+        defaultHeaders:
+          X-Env: "stage"
+    assertions:
+      minSuccessPercent: 99.0
+      maxResponseTimeMs: 2000
+      p95ResponseTimeMs: 1200
+    scenarios:
+      - name: "Customer Read Flow"
+        load:
+          profileRef: "quick_ramp"
+        feeder:
+          type: "csv"
+          file: "data/users.csv"
+          mode: "circular"
+        steps:
+          - name: "Health"
+            method: "GET"
+            path: "/health"
+            expectedStatus: 200
+            checks:
+              - type: "bodyContains"
+                value: "ok"
+          - name: "Get Customers"
+            method: "GET"
+            path: "/v1/customers?tenant=#{tenant}"
+            expectedStatus: 200
+            captures:
+              - type: "jsonPath"
+                path: "$[0].id"
+                saveAs: "customerId"
+          - name: "Search Customer Orders"
+            method: "GET"
+            path: "/v1/orders"
+            queryParams:
+              customerId: "#{customerId}"
+              page: "1"
+            expectedStatus: 200
+          - name: "Submit Search Form"
+            method: "POST"
+            path: "/v1/search"
+            bodyType: "form"
+            formParams:
+              tenant: "#{tenant}"
+              status: "ACTIVE"
+            expectedStatus: 200
+          - name: "Upload Import File"
+            method: "POST"
+            path: "/v1/import"
+            bodyType: "multipart"
+            requestTimeoutMs: 30000
+            formParams:
+              tenant: "#{tenant}"
+            formUploads:
+              - fieldName: "file"
+                filePath: "src/test/resources/data/upload-sample.txt"
+            expectedStatus: 202
+
+  order-api:
+    enabled: true
+    service:
+      baseUrl: "https://api.order.example.com"
+      defaultHeaders:
+        Accept: "application/json"
+        Content-Type: "application/json"
+    activeEnvironment: "perf"
+    injectionProfiles:
+      exact_60k_hour:
+        injectionType: "pacedUsers"
+        users: 10
+        durationSec: 3600
+        paceMs: 600
+    environments:
+      perf:
+        baseUrl: "https://perf.order.example.com"
+        defaultHeaders:
+          X-Env: "perf"
+    assertions:
+      minSuccessPercent: 98.0
+      maxResponseTimeMs: 2500
+      p95ResponseTimeMs: 1500
+    scenarios:
+      - name: "Order Create Flow"
+        load:
+          profileRef: "exact_60k_hour"
+        feeder:
+          type: "csv"
+          file: "data/users.csv"
+          mode: "random"
+        steps:
+          - name: "Create Order"
+            method: "POST"
+            path: "/v1/orders"
+            bodyFile: "src/test/resources/bodies/create-post.json"
+            bodyType: "json"
+            expectedStatus: 201
+            checks:
+              - type: "jsonPathExists"
+                path: "$.id"

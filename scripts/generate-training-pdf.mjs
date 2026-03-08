@@ -1,0 +1,199 @@
+import { chromium } from "playwright";
+import path from "node:path";
+import { promises as fs } from "node:fs";
+
+const root = path.resolve("c:/Users/nives/Desktop/myfiles/Tools/Kubernetes/gatling-api-tool");
+const dist = path.join(root, "dist");
+const assets = path.join(root, "assets", "presentation");
+const htmlFile = path.join(dist, "Gatling-API-Tool-Scenario-Runbook.html");
+const pdfFile = path.join(dist, "Gatling-API-Tool-Scenario-Runbook.pdf");
+
+await fs.mkdir(dist, { recursive: true });
+
+function imgTag(n) {
+  const p = path.join(assets, `slide${n}.png`).replace(/\\/g, "/");
+  return `<img src="file:///${p}" alt="slide${n}" />`;
+}
+
+const html = `<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Gatling API Tool Scenario Runbook</title>
+  <style>
+    body { font-family: Arial, sans-serif; color:#111; margin:0; padding:24px; line-height:1.4; }
+    h1,h2 { margin: 0 0 8px; }
+    h1 { font-size: 28px; color:#0f5cc0; }
+    h2 { font-size: 20px; color:#114f9b; margin-top:20px; }
+    .meta { margin-bottom:18px; color:#333; }
+    .card { border:1px solid #cfd8e3; border-radius:10px; padding:12px; margin: 12px 0 18px; page-break-inside: avoid; }
+    ul { margin:8px 0 10px 20px; }
+    code, pre { font-family: Consolas, monospace; background:#f4f7fb; }
+    pre { padding:10px; border-radius:8px; overflow:auto; }
+    img { width:100%; border:1px solid #d6dee9; border-radius:8px; margin-top:8px; }
+    .small { font-size:12px; color:#555; }
+  </style>
+</head>
+<body>
+  <h1>Gatling API Tool: Detailed Scenario Runbook</h1>
+  <div class="meta">
+    Scenario: <b>orders-service / qa</b><br/>
+    Flow: <b>GET /orders -> GET /orders/#{orderId} -> POST /orders</b><br/>
+    Targets: <b>Success >= 99%, p95 <= 1200ms, p99 <= 2000ms</b>
+  </div>
+
+  <div class="card">
+    <h2>1. Installation and Startup</h2>
+    <ul>
+      <li>Run <code>check-prerequisites.bat</code></li>
+      <li>Run <code>start-ui-workspace.bat</code></li>
+      <li>Verify UI Runner API is <code>http://127.0.0.1:8787</code></li>
+    </ul>
+    <pre>cd gatling-api-tool
+check-prerequisites.bat
+start-ui-workspace.bat</pre>
+    ${imgTag(2)}
+  </div>
+
+  <div class="card">
+    <h2>2. App and Base Service Setup</h2>
+    <ul>
+      <li>Application: <code>orders-service</code></li>
+      <li>Base URL: <code>https://qa.api.company.com</code></li>
+      <li>Auth: bearer via env <code>API_TOKEN</code></li>
+      <li>Assertions: minSuccess 99, maxRT 2000, p95 1200</li>
+    </ul>
+    ${imgTag(3)}
+    ${imgTag(4)}
+  </div>
+
+  <div class="card">
+    <h2>3. Injection Profiles</h2>
+    <ul>
+      <li><code>smoke_5</code>: 5 users / 15 sec</li>
+      <li><code>baseline_20</code>: ramp 20 users / 60 sec</li>
+      <li><code>stress_80</code>: ramp 80 users / 180 sec</li>
+      <li>Map scenario to <code>baseline_20</code> for QA baseline run</li>
+    </ul>
+    ${imgTag(5)}
+  </div>
+
+  <div class="card">
+    <h2>4. Scenario Steps (Core)</h2>
+    <ul>
+      <li>Step 1: GET <code>/orders</code> expected 200</li>
+      <li>Step 2: GET <code>/orders/#{orderId}</code> expected 200</li>
+      <li>Step 3: POST <code>/orders</code> expected 201</li>
+    </ul>
+    ${imgTag(6)}
+  </div>
+
+  <div class="card">
+    <h2>5. Checks and Captures</h2>
+    <ul>
+      <li>Add checks: <code>jsonPathExists($.items[0].id)</code>, <code>bodyContains("order")</code></li>
+      <li>Capture: <code>$.items[0].id</code> -> <code>orderId</code></li>
+      <li>Use capture in next step path: <code>/orders/#{orderId}</code></li>
+    </ul>
+    ${imgTag(7)}
+  </div>
+
+  <div class="card">
+    <h2>6. Environments, Headers, Certs</h2>
+    <ul>
+      <li>Define environment <code>qa</code> with specific URL/auth overrides</li>
+      <li>Use global headers in Advanced mode</li>
+      <li>Configure TLS cert/trust store only when required</li>
+    </ul>
+    ${imgTag(8)}
+    ${imgTag(9)}
+  </div>
+
+  <div class="card">
+    <h2>7. Expert / Raw YAML</h2>
+    <ul>
+      <li>Click <b>Sync Generated YAML Into Editor</b></li>
+      <li>Enable <b>Use Raw YAML: On</b> only for edge-case overrides</li>
+      <li>Keep diff minimal and preserve profile/assertion structure</li>
+    </ul>
+    ${imgTag(10)}
+    ${imgTag(11)}
+  </div>
+
+  <div class="card">
+    <h2>7A. Conditional Statements (If/Else) Example</h2>
+    <ul>
+      <li>Drive branching using captured/session values like <code>#{customerTier}</code></li>
+      <li>If premium: call premium route; else call standard route</li>
+      <li>Use explicit expected status on both branch and else path</li>
+    </ul>
+    <pre>steps:
+  - name: "Route By Tier"
+    method: "GET"
+    path: "/orders"
+    branches:
+      - name: "Premium Path"
+        when:
+          variable: "customerTier"
+          operator: "equals"
+          value: "premium"
+        method: "GET"
+        path: "/orders/premium"
+        expectedStatus: 200
+    elseMethod: "GET"
+    elsePath: "/orders/standard"
+    elseExpectedStatus: 200</pre>
+    ${imgTag(9)}
+  </div>
+
+  <div class="card">
+    <h2>8. Real Run and Diagnostics</h2>
+    <ul>
+      <li>Run <b>Check Runner</b>, then <b>Run Real Load (Gatling)</b></li>
+      <li>Track run state, job id, and output tail</li>
+      <li>Confirm report availability is Final</li>
+    </ul>
+    ${imgTag(12)}
+  </div>
+
+  <div class="card">
+    <h2>9. Report Analysis</h2>
+    <ul>
+      <li>Primary KPIs: success %, p95, p99, max RT</li>
+      <li>Use failure reason table first for triage</li>
+      <li>Use parity diagnostics to distinguish preview limitations</li>
+    </ul>
+    ${imgTag(13)}
+  </div>
+
+  <div class="card">
+    <h2>10. Save Suite and Release</h2>
+    <ul>
+      <li>Save suite as <code>orders-qa-regression</code></li>
+      <li>Create release package via <code>build-release.bat</code></li>
+      <li>Share zip + <code>latest-bundle.sha256</code></li>
+    </ul>
+    <pre>build-release.bat</pre>
+    ${imgTag(14)}
+  </div>
+
+  <div class="small">Generated automatically from the current workspace UI captures.</div>
+</body>
+</html>`;
+
+await fs.writeFile(htmlFile, html, "utf8");
+
+const browser = await chromium.launch({ headless: true });
+const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+await page.goto(`file:///${htmlFile.replace(/\\/g, "/")}`);
+await page.waitForTimeout(800);
+await page.pdf({
+  path: pdfFile,
+  format: "A4",
+  printBackground: true,
+  margin: { top: "12mm", right: "10mm", bottom: "12mm", left: "10mm" }
+});
+await browser.close();
+
+console.log("Created HTML:", htmlFile);
+console.log("Created PDF:", pdfFile);
