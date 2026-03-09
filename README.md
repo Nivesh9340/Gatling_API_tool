@@ -53,6 +53,7 @@ Portable launcher behavior:
 - `check-prerequisites.bat` treats Maven as optional when `target/ui-gateway-backend.jar` already exists.
 - Scripts use path-relative resolution (`%~dp0`) so they can run from any install location.
 - Runtime settings can be customized in `config/app.properties` or overridden with env vars (`UI_PORT`, `UI_HOST`, `UI_RUNS_DIR`, `UI_REPORTS_DIR`, `UI_CONFIG_FILE`).
+- `run-ui-backend.bat` writes `ui/runner-config.js` with the effective backend URL so the UI can auto-fill `UI Runner API`.
 - `create-portable-bundle.bat` now writes `dist/latest-bundle.txt` and `dist/latest-bundle.sha256`.
 
 ## Run with sample config
@@ -185,7 +186,7 @@ cd gatling-api-tool
 run-ui-backend.bat
 ```
 2. Open `ui/index.html`.
-3. Set `UI Runner API` to `http://127.0.0.1:8787`.
+3. `UI Runner API` is auto-filled from `ui/runner-config.js` (generated on backend start). Update it manually only when targeting a different host/port.
 4. Click `Run Real Load (Gatling)`.
 5. The UI will show status, logs, and load report link/embedded report.
 - Embedded reports are served through the backend over `http://127.0.0.1:8787/reports/...` so the iframe does not depend on `file:///...` browser behavior.
