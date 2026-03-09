@@ -267,6 +267,13 @@ function getEffectiveGeneratedYaml() {
 function shouldUseRawYaml() {
   return state.uiMode === "expert" && state.rawYamlOverride;
 }
+function applyRunnerConfigDefault() {
+  const input = q("runnerApiBase");
+  const configured = ((window.__RUNNER_CONFIG__ || {}).runnerApiBase || "").trim();
+  if (!input || isBlank(configured)) return;
+  const current = (input.value || "").trim();
+  if (isBlank(current) || current === "http://127.0.0.1:8787") input.value = configured;
+}
 function getEffectiveYamlForExecution() {
   if (shouldUseRawYaml()) {
     const raw = (q("rawYamlEditor").value || "").trim();
@@ -2683,6 +2690,7 @@ document.querySelectorAll(".flow-tab").forEach((btn) => {
 
 addApp();
 renderSavedSuites();
+applyRunnerConfigDefault();
 setMode("basic");
 renderFlowPage();
 renderCards({ scenarios: 0, steps: 0, total: 0, success: 0, successPct: "0.00%", minRt: 0, avgRt: 0, p95Rt: 0, p99Rt: 0, maxRt: 0, parity: 0 });

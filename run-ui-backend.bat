@@ -15,6 +15,7 @@ if not "%UI_CONFIG_FILE%"=="" set "JAVA_OPTS=%JAVA_OPTS% -Dui.config=%UI_CONFIG_
 
 call :ensure_java
 if errorlevel 1 goto fail
+call :prepare_runner_config
 
 if exist "%BACKEND_JAR%" goto start_from_jar
 
@@ -124,6 +125,35 @@ if exist "%ROOT%mvnw.cmd" (
 )
 
 exit /b 1
+
+:prepare_runner_config
+set "EFFECTIVE_UI_HOST=127.0.0.1"
+set "EFFECTIVE_UI_PORT=8787"
+set "CONFIG_FILE=%UI_CONFIG_FILE%"
+if "%CONFIG_FILE%"=="" set "CONFIG_FILE=%ROOT%config\app.properties"
+
+if exist "%CONFIG_FILE%" (
+  for /f "usebackq eol=# tokens=1,* delims==" %%A in ("%CONFIG_FILE%") do (
+    set "KEY_RAW=%%A"
+    set "VAL_RAW=%%B"
+    call :apply_config_pair
+  )
+)
+
+if not "%UI_HOST%"=="" set "EFFECTIVE_UI_HOST=%UI_HOST%"
+if not "%UI_PORT%"=="" set "EFFECTIVE_UI_PORT=%UI_PORT%"
+
+> "%ROOT%ui\runner-config.js" echo window.__RUNNER_CONFIG__ = { runnerApiBase: "http://%EFFECTIVE_UI_HOST%:%EFFECTIVE_UI_PORT%" };
+exit /b 0
+
+:apply_config_pair
+set "CFG_KEY=%KEY_RAW%"
+set "CFG_VAL=%VAL_RAW%"
+for /f "tokens=* delims= " %%K in ("%CFG_KEY%") do set "CFG_KEY=%%K"
+for /f "tokens=* delims= " %%V in ("%CFG_VAL%") do set "CFG_VAL=%%V"
+if /I "%CFG_KEY%"=="ui.host" set "EFFECTIVE_UI_HOST=%CFG_VAL%"
+if /I "%CFG_KEY%"=="ui.port" set "EFFECTIVE_UI_PORT=%CFG_VAL%"
+exit /b 0
 
 :fail
 popd
