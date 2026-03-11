@@ -81,6 +81,7 @@ public final class ConfigModels {
         public String method;
         public String path;
         public String url;
+        public String customHookRef;
         public Map<String, String> headers;
         public Map<String, String> queryParams;
         public Map<String, String> formParams;
@@ -122,6 +123,7 @@ public final class ConfigModels {
         public String method;
         public String path;
         public String url;
+        public String customHookRef;
         public Map<String, String> headers;
         public Map<String, String> queryParams;
         public Map<String, String> formParams;

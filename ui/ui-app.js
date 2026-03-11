@@ -384,7 +384,7 @@ function branchRowTemplate(branch = {}) {
     <td><button class="danger rm-branch" type="button">Remove</button></td>
   </tr>
   <tr class="branch-row-body">
-    <td colspan="10"><label>Branch Body Override</label><textarea class="branch-body" placeholder="optional branch-specific body">${branch.body || ""}</textarea></td>
+    <td colspan="10"><label>Branch Body Override</label><textarea class="branch-body" placeholder="optional branch-specific body">${branch.body || ""}</textarea><div class="grid" style="margin-top:8px;"><div><label>Branch Hook Class (Expert)</label><input class="branch-hook-ref" placeholder="com.example.gatling.extensions.MyHook" value="${branch.customHookRef || ""}"/></div></div></td>
   </tr>
   <tr class="branch-row-checks">
     <td colspan="10">
@@ -514,6 +514,7 @@ function parseBranches(target) {
     const url = ((row.querySelector(".branch-url") || {}).value || "").trim();
     const status = ((row.querySelector(".branch-status") || {}).value || "").trim();
     const body = ((bodyRow && bodyRow.querySelector(".branch-body")) || {}).value || "";
+    const hookRef = ((bodyRow && bodyRow.querySelector(".branch-hook-ref")) || {}).value || "";
     const checks = parseBranchChecks((checksRow && checksRow.querySelector(".branch-checks-body")) || null);
     const captures = parseBranchCaptures((capturesRow && capturesRow.querySelector(".branch-captures-body")) || null);
     if (!isBlank(method)) branch.method = method;
@@ -521,6 +522,7 @@ function parseBranches(target) {
     if (!isBlank(url)) branch.url = url;
     if (!isBlank(status)) branch.expectedStatus = Number(status);
     if (!isBlank(body)) branch.body = body;
+    if (!isBlank(hookRef)) branch.customHookRef = hookRef.trim();
     if (checks.length) branch.checks = checks;
     if (captures.length) branch.captures = captures;
     if (!isBlank(branch.when.variable)) out.push(branch);
@@ -561,7 +563,7 @@ function evaluateCondition(condition, vars) {
 function mergeStepOverride(baseStep, override, suffix) {
   const merged = JSON.parse(JSON.stringify(baseStep || {}));
   merged.name = !isBlank((override || {}).name) ? `${baseStep.name} :: ${override.name}` : `${baseStep.name}${suffix ? ` ${suffix}` : ""}`;
-  ["method", "path", "url", "body", "bodyFile", "bodyType", "auth", "expectedStatus", "retryCount", "pauseMs", "requestTimeoutMs"].forEach((key) => {
+  ["method", "path", "url", "customHookRef", "body", "bodyFile", "bodyType", "auth", "expectedStatus", "retryCount", "pauseMs", "requestTimeoutMs"].forEach((key) => {
     if (override && override[key] != null && !isBlank(override[key])) merged[key] = override[key];
   });
   ["disableFollowRedirect", "disableUrlEncoding", "silent", "ignoreProtocolHeaders"].forEach((key) => {
@@ -931,7 +933,7 @@ function endpointTemplate(n) {
       <button type="button" class="ghost add-u mode-basic-hide">Upload</button>
       <button type="button" class="ghost add-cap mode-basic-hide">Capture</button>
     </div>
-    <details class="ep-section sec-request is-hidden mode-basic-hide"><summary>Request Options</summary><div><div class="grid"><div><label>Request Timeout (ms)</label><input class="timeout" type="number" value="" min="1"/></div><div><label><input class="disable-follow-redirect" type="checkbox"/> Disable Follow Redirect</label></div><div><label><input class="disable-url-encoding" type="checkbox"/> Disable URL Encoding</label></div><div><label><input class="silent-step" type="checkbox"/> Silent Request</label></div><div><label><input class="ignore-protocol-headers" type="checkbox"/> Ignore Protocol Headers</label></div></div></div></details>
+    <details class="ep-section sec-request is-hidden mode-basic-hide"><summary>Request Options</summary><div><div class="grid"><div><label>Request Timeout (ms)</label><input class="timeout" type="number" value="" min="1"/></div><div><label><input class="disable-follow-redirect" type="checkbox"/> Disable Follow Redirect</label></div><div><label><input class="disable-url-encoding" type="checkbox"/> Disable URL Encoding</label></div><div><label><input class="silent-step" type="checkbox"/> Silent Request</label></div><div><label><input class="ignore-protocol-headers" type="checkbox"/> Ignore Protocol Headers</label></div><div class="mode-expert-only"><label>Custom Hook Class</label><input class="custom-hook-ref" placeholder="com.example.gatling.extensions.MyHook"/></div></div></div></details>
     <details class="ep-section sec-auth is-hidden mode-basic-hide"><summary>Auth</summary><div><div class="grid"><div><label>Step Auth Type</label><select class="step-auth-type"><option value="">none</option><option value="bearer">bearer</option><option value="basic">basic</option><option value="header">header</option></select></div><div><label>Auth Param 1</label><input class="step-auth-p1" placeholder="token env / username env / header value env"/></div><div><label>Auth Param 2</label><input class="step-auth-p2" placeholder="password env"/></div><div><label>Header Name</label><input class="step-auth-header" placeholder="x-api-key"/></div></div></div></details>
     <details class="ep-section sec-payload is-hidden"><summary>Payload</summary><div><div class="grid"><div class="mode-basic-hide"><label>Body Type</label><select class="body-type"><option value="">auto/json</option><option value="json">json</option><option value="xml">xml</option><option value="text">text</option><option value="form">form</option><option value="multipart">multipart</option></select></div><div class="mode-basic-hide"><label>Body File</label><input class="body-file" placeholder="src/test/resources/bodies/request.json"/></div></div><div><label>Body (supports #{var})</label><textarea class="body"></textarea></div><div class="row mode-basic-hide"><label>Form Params</label><button class="ghost add-f" type="button">Add Form Param</button></div><table class="mode-basic-hide"><thead><tr><th>Name</th><th>Value</th><th>Action</th></tr></thead><tbody class="step-f"></tbody></table><div class="row mode-basic-hide"><label>Multipart Uploads</label><button class="ghost add-u" type="button">Add Upload</button></div><table class="mode-basic-hide"><thead><tr><th>Field Name</th><th>File Path</th><th>Action</th></tr></thead><tbody class="step-u"></tbody></table></div></details>
     <details class="ep-section sec-branching is-hidden mode-basic-hide"><summary>Branching And Fallback</summary><div><div class="small">Use branch rules to override the request when a saved session variable matches custom logic. The fallback request runs when no branch matches.</div><div class="row"><label>Branch Rules</label><button class="ghost add-branch" type="button">Add Branch Rule</button></div><table><thead><tr><th>Name</th><th>Variable</th><th>Operator</th><th>Value</th><th>Values CSV</th><th>Method</th><th>Path</th><th>Absolute URL</th><th>Status</th><th>Action</th></tr></thead><tbody class="step-branches"></tbody></table><div class="grid" style="margin-top:12px;"><div><label>Legacy Condition Variable</label><input class="cond-var" placeholder="savedVar"/></div><div><label>Legacy Condition Equals</label><input class="cond-eq" placeholder="expectedValue"/></div><div><label>Fallback Method</label><select class="else-method"><option value="">inherit/skip</option><option>GET</option><option>POST</option><option>PUT</option><option>PATCH</option><option>DELETE</option><option>HEAD</option><option>OPTIONS</option></select></div><div><label>Fallback Path</label><input class="else-path" placeholder="/fallback/path"/></div><div><label>Fallback Expected Status</label><input class="else-status" type="number" value=""/></div></div><div><label>Fallback Body</label><textarea class="else-body"></textarea></div></div></details>
@@ -961,7 +963,7 @@ function addEndpoint(container, data) {
   node.querySelectorAll(".add-c").forEach((btn) => btn.addEventListener("click", () => { ensureEndpointSection(node, "checks"); const x = document.createElement("tbody"); x.innerHTML = checkRowTemplate(); const r = x.firstElementChild; r.querySelector(".rm-c").addEventListener("click", () => { r.remove(); updateEndpointSummary(node); }); c.appendChild(r); updateEndpointSummary(node); }));
   node.querySelectorAll(".add-cap").forEach((btn) => btn.addEventListener("click", () => { ensureEndpointSection(node, "captures"); const x = document.createElement("tbody"); x.innerHTML = captureRowTemplate(); const r = x.firstElementChild; r.querySelector(".rm-cap").addEventListener("click", () => { r.remove(); updateEndpointSummary(node); }); cap.appendChild(r); updateEndpointSummary(node); }));
   if (data) {
-    node.querySelector(".name").value = data.name || ""; node.querySelector(".method").value = data.method || "GET"; node.querySelector(".path").value = data.path || ""; node.querySelector(".url").value = data.url || ""; node.querySelector(".status").value = data.expectedStatus || 200; node.querySelector(".retry").value = data.retryCount || 0; node.querySelector(".pause").value = data.pauseMs || 0; node.querySelector(".timeout").value = data.requestTimeoutMs || ""; node.querySelector(".body-type").value = data.bodyType || ""; node.querySelector(".body-file").value = data.bodyFile || ""; node.querySelector(".cond-var").value = data.condition ? data.condition.variable || "" : ""; node.querySelector(".cond-eq").value = data.condition ? (data.condition.value || data.condition.equals || "") : ""; node.querySelector(".else-method").value = data.elseMethod || ""; node.querySelector(".else-path").value = data.elsePath || ""; node.querySelector(".else-status").value = data.elseExpectedStatus == null ? "" : data.elseExpectedStatus; node.querySelector(".body").value = data.body || ""; node.querySelector(".else-body").value = data.elseBody || ""; node.querySelector(".step-auth-type").value = data.auth ? data.auth.type || "" : ""; node.querySelector(".step-auth-p1").value = data.auth ? data.auth.tokenEnv || data.auth.usernameEnv || data.auth.headerValueEnv || "" : ""; node.querySelector(".step-auth-p2").value = data.auth ? data.auth.passwordEnv || "" : ""; node.querySelector(".step-auth-header").value = data.auth ? data.auth.headerName || "" : ""; node.querySelector(".disable-follow-redirect").checked = data.disableFollowRedirect === true; node.querySelector(".disable-url-encoding").checked = data.disableUrlEncoding === true; node.querySelector(".silent-step").checked = data.silent === true; node.querySelector(".ignore-protocol-headers").checked = data.ignoreProtocolHeaders === true;
+    node.querySelector(".name").value = data.name || ""; node.querySelector(".method").value = data.method || "GET"; node.querySelector(".path").value = data.path || ""; node.querySelector(".url").value = data.url || ""; node.querySelector(".status").value = data.expectedStatus || 200; node.querySelector(".retry").value = data.retryCount || 0; node.querySelector(".pause").value = data.pauseMs || 0; node.querySelector(".timeout").value = data.requestTimeoutMs || ""; node.querySelector(".custom-hook-ref").value = data.customHookRef || ""; node.querySelector(".body-type").value = data.bodyType || ""; node.querySelector(".body-file").value = data.bodyFile || ""; node.querySelector(".cond-var").value = data.condition ? data.condition.variable || "" : ""; node.querySelector(".cond-eq").value = data.condition ? (data.condition.value || data.condition.equals || "") : ""; node.querySelector(".else-method").value = data.elseMethod || ""; node.querySelector(".else-path").value = data.elsePath || ""; node.querySelector(".else-status").value = data.elseExpectedStatus == null ? "" : data.elseExpectedStatus; node.querySelector(".body").value = data.body || ""; node.querySelector(".else-body").value = data.elseBody || ""; node.querySelector(".step-auth-type").value = data.auth ? data.auth.type || "" : ""; node.querySelector(".step-auth-p1").value = data.auth ? data.auth.tokenEnv || data.auth.usernameEnv || data.auth.headerValueEnv || "" : ""; node.querySelector(".step-auth-p2").value = data.auth ? data.auth.passwordEnv || "" : ""; node.querySelector(".step-auth-header").value = data.auth ? data.auth.headerName || "" : ""; node.querySelector(".disable-follow-redirect").checked = data.disableFollowRedirect === true; node.querySelector(".disable-url-encoding").checked = data.disableUrlEncoding === true; node.querySelector(".silent-step").checked = data.silent === true; node.querySelector(".ignore-protocol-headers").checked = data.ignoreProtocolHeaders === true;
     Object.keys(data.headers || {}).forEach((k) => addHeaderRow(h, k, data.headers[k]));
     Object.keys(data.queryParams || {}).forEach((k) => addKeyValueRow(qParams, "q-key", "q-val", "tenant", "#{tenant}", k, data.queryParams[k]));
     Object.keys(data.formParams || {}).forEach((k) => addKeyValueRow(formParams, "f-key", "f-val", "status", "ACTIVE", k, data.formParams[k]));
@@ -1088,6 +1090,7 @@ function appFromUI() {
       const url = e.querySelector(".url").value.trim();
       const bodyFile = e.querySelector(".body-file").value.trim();
       const bodyType = e.querySelector(".body-type").value.trim();
+      const customHookRef = (e.querySelector(".custom-hook-ref").value || "").trim();
       const requestTimeoutMs = Number(e.querySelector(".timeout").value || 0);
       const queryParams = parseKeyValueRows(e.querySelector(".step-q"), "q-key", "q-val");
       const formParams = parseKeyValueRows(e.querySelector(".step-f"), "f-key", "f-val");
@@ -1095,6 +1098,7 @@ function appFromUI() {
       if (!isBlank(url)) st.url = url;
       if (!isBlank(bodyFile)) st.bodyFile = bodyFile;
       if (!isBlank(bodyType)) st.bodyType = bodyType;
+      if (!isBlank(customHookRef)) st.customHookRef = customHookRef;
       if (requestTimeoutMs > 0) st.requestTimeoutMs = requestTimeoutMs;
       if (Object.keys(queryParams).length) st.queryParams = queryParams;
       if (Object.keys(formParams).length) st.formParams = formParams;
@@ -1848,6 +1852,7 @@ function emitBranchYaml(indent, branch, lines) {
   if (!isBlank(branch.method)) lines.push(`${indent}  method: "${esc(branch.method)}"`);
   if (!isBlank(branch.path)) lines.push(`${indent}  path: "${esc(branch.path)}"`);
   if (!isBlank(branch.url)) lines.push(`${indent}  url: "${esc(branch.url)}"`);
+  if (!isBlank(branch.customHookRef)) lines.push(`${indent}  customHookRef: "${esc(branch.customHookRef)}"`);
   if (branch.expectedStatus != null) lines.push(`${indent}  expectedStatus: ${branch.expectedStatus}`);
   yamlValueLines(`${indent}  `, "body", branch.body, lines);
   if (branch.checks && branch.checks.length) {
@@ -1932,6 +1937,7 @@ function emitYaml(plan) {
         lines.push(`            method: "${esc(step.method || "")}"`);
         if (!isBlank(step.path)) lines.push(`            path: "${esc(step.path || "")}"`);
         if (!isBlank(step.url)) lines.push(`            url: "${esc(step.url || "")}"`);
+        if (!isBlank(step.customHookRef)) lines.push(`            customHookRef: "${esc(step.customHookRef)}"`);
         if (step.expectedStatus != null) lines.push(`            expectedStatus: ${step.expectedStatus}`);
         if (step.retryCount != null) lines.push(`            retryCount: ${step.retryCount}`);
         if (step.pauseMs != null) lines.push(`            pauseMs: ${step.pauseMs}`);

@@ -2,10 +2,12 @@ package com.example.gatling.simulations;
 
 import com.example.gatling.config.ConfigLoader;
 import com.example.gatling.config.ConfigModels;
+import com.example.gatling.extensions.StepHookExtension;
 import io.gatling.javaapi.core.ChainBuilder;
 import io.gatling.javaapi.core.Assertion;
 import io.gatling.javaapi.core.PopulationBuilder;
 import io.gatling.javaapi.core.ScenarioBuilder;
+import io.gatling.javaapi.core.Session;
 import io.gatling.javaapi.core.Simulation;
 import io.gatling.javaapi.http.HttpProtocolBuilder;
 import io.gatling.javaapi.http.HttpRequestActionBuilder;
@@ -22,6 +24,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 import static io.gatling.javaapi.core.CoreDsl.exec;
 import static io.gatling.javaapi.core.CoreDsl.asLongAs;
@@ -59,6 +62,7 @@ public class ConfigDrivenApiSimulation extends Simulation {
     private static final String CONFIG_PATH = System.getProperty("configFile", "src/test/resources/sample-config.yaml");
 
     private final ConfigModels.TestPlan plan = ConfigLoader.load(CONFIG_PATH);
+    private final Map<String, StepHookExtension> stepHookCache = new ConcurrentHashMap<>();
 
     {
         if (plan.applications != null && !plan.applications.isEmpty()) {
@@ -254,7 +258,9 @@ public class ConfigDrivenApiSimulation extends Simulation {
     }
 
     private ChainBuilder buildExecutableChain(ConfigModels.RequestStep step) {
-        ChainBuilder chain = exec(buildRequest(step));
+        ChainBuilder chain = exec(session -> applyStepHookBefore(session, step))
+                .exec(buildRequest(step))
+                .exec(session -> applyStepHookAfter(session, step));
         if (step.retryCount != null && step.retryCount > 0) {
             chain = tryMax(step.retryCount + 1).on(chain);
         }
@@ -306,6 +312,7 @@ public class ConfigDrivenApiSimulation extends Simulation {
         elseStep.name = step.name + " (else)";
         elseStep.method = step.elseMethod;
         elseStep.path = step.elsePath;
+        elseStep.customHookRef = step.customHookRef;
         elseStep.headers = step.headers;
         elseStep.queryParams = step.queryParams;
         elseStep.formParams = step.formParams;
@@ -332,6 +339,7 @@ public class ConfigDrivenApiSimulation extends Simulation {
         copy.method = source.method;
         copy.path = source.path;
         copy.url = source.url;
+        copy.customHookRef = source.customHookRef;
         copy.headers = copyMap(source.headers);
         copy.queryParams = copyMap(source.queryParams);
         copy.formParams = copyMap(source.formParams);
@@ -371,6 +379,9 @@ public class ConfigDrivenApiSimulation extends Simulation {
         }
         if (!isBlank(branch.url)) {
             merged.url = branch.url;
+        }
+        if (!isBlank(branch.customHookRef)) {
+            merged.customHookRef = branch.customHookRef;
         }
         if (branch.headers != null && !branch.headers.isEmpty()) {
             merged.headers = copyMap(parent.headers);
@@ -432,6 +443,36 @@ public class ConfigDrivenApiSimulation extends Simulation {
             merged.captures = copyCaptures(branch.captures);
         }
         return merged;
+    }
+
+    private Session applyStepHookBefore(Session session, ConfigModels.RequestStep step) {
+        StepHookExtension hook = resolveStepHook(step);
+        return hook == null ? session : hook.before(session, step);
+    }
+
+    private Session applyStepHookAfter(Session session, ConfigModels.RequestStep step) {
+        StepHookExtension hook = resolveStepHook(step);
+        return hook == null ? session : hook.after(session, step);
+    }
+
+    private StepHookExtension resolveStepHook(ConfigModels.RequestStep step) {
+        if (step == null || isBlank(step.customHookRef)) {
+            return null;
+        }
+        return stepHookCache.computeIfAbsent(step.customHookRef, this::instantiateHook);
+    }
+
+    private StepHookExtension instantiateHook(String className) {
+        try {
+            Class<?> clazz = Class.forName(className);
+            Object instance = clazz.getDeclaredConstructor().newInstance();
+            if (!(instance instanceof StepHookExtension)) {
+                throw new IllegalArgumentException("Hook class does not implement StepHookExtension: " + className);
+            }
+            return (StepHookExtension) instance;
+        } catch (Exception ex) {
+            throw new IllegalArgumentException("Failed to load customHookRef: " + className, ex);
+        }
     }
 
     private Map<String, String> copyMap(Map<String, String> source) {

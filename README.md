@@ -262,3 +262,21 @@ build-release.bat
 - `else if tier == vip` -> `/orders/vip/#{orderId}`
 - `else if tier == trial` -> `/orders/trial/#{orderId}`
 - `else` -> `/orders/standard/#{orderId}`
+
+## Hybrid Expert Hooks (UI + Code)
+- Each API step supports optional `customHookRef` in Expert mode.
+- Each branch rule also supports optional `customHookRef`.
+- `customHookRef` must be a fully-qualified Java class that implements:
+  - `com.example.gatling.extensions.StepHookExtension`
+- Hooks run around the request:
+  - `before(Session, RequestStep)` executes before the HTTP call
+  - `after(Session, RequestStep)` executes after the HTTP call
+
+Example YAML:
+```yaml
+steps:
+  - name: "Login"
+    method: POST
+    path: "/login"
+    customHookRef: "com.example.gatling.extensions.TraceHook"
+```
