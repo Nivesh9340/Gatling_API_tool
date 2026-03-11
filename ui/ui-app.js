@@ -384,7 +384,7 @@ function branchRowTemplate(branch = {}) {
     <td><button class="danger rm-branch" type="button">Remove</button></td>
   </tr>
   <tr class="branch-row-body">
-    <td colspan="10"><label>Branch Body Override</label><textarea class="branch-body" placeholder="optional branch-specific body">${branch.body || ""}</textarea><div class="grid" style="margin-top:8px;"><div><label>Branch Hook Class (Expert)</label><input class="branch-hook-ref" placeholder="com.example.gatling.extensions.MyHook" value="${branch.customHookRef || ""}"/></div></div></td>
+    <td colspan="10"><label>Branch Body Override</label><textarea class="branch-body" placeholder="optional branch-specific body">${branch.body || ""}</textarea><div class="grid" style="margin-top:8px;"><div><label>Branch Hook Class (Expert)</label><input class="branch-hook-ref" placeholder="com.example.gatling.extensions.MyHook" value="${branch.customHookRef || ""}"/></div><div><label>Branch Hook Name (Generated)</label><input class="branch-hook-name" placeholder="BranchVipHook" value="${branch.customHookName || ""}"/></div></div><label style="margin-top:6px;">Branch Hook Java Code (before step)</label><textarea class="branch-hook-code" placeholder="session = session.set(&quot;branchMode&quot;, &quot;vip&quot;);">${branch.customHookCode || ""}</textarea></td>
   </tr>
   <tr class="branch-row-checks">
     <td colspan="10">
@@ -515,6 +515,8 @@ function parseBranches(target) {
     const status = ((row.querySelector(".branch-status") || {}).value || "").trim();
     const body = ((bodyRow && bodyRow.querySelector(".branch-body")) || {}).value || "";
     const hookRef = ((bodyRow && bodyRow.querySelector(".branch-hook-ref")) || {}).value || "";
+    const hookName = ((bodyRow && bodyRow.querySelector(".branch-hook-name")) || {}).value || "";
+    const hookCode = ((bodyRow && bodyRow.querySelector(".branch-hook-code")) || {}).value || "";
     const checks = parseBranchChecks((checksRow && checksRow.querySelector(".branch-checks-body")) || null);
     const captures = parseBranchCaptures((capturesRow && capturesRow.querySelector(".branch-captures-body")) || null);
     if (!isBlank(method)) branch.method = method;
@@ -523,6 +525,8 @@ function parseBranches(target) {
     if (!isBlank(status)) branch.expectedStatus = Number(status);
     if (!isBlank(body)) branch.body = body;
     if (!isBlank(hookRef)) branch.customHookRef = hookRef.trim();
+    if (!isBlank(hookName)) branch.customHookName = hookName.trim();
+    if (!isBlank(hookCode)) branch.customHookCode = hookCode;
     if (checks.length) branch.checks = checks;
     if (captures.length) branch.captures = captures;
     if (!isBlank(branch.when.variable)) out.push(branch);
@@ -563,7 +567,7 @@ function evaluateCondition(condition, vars) {
 function mergeStepOverride(baseStep, override, suffix) {
   const merged = JSON.parse(JSON.stringify(baseStep || {}));
   merged.name = !isBlank((override || {}).name) ? `${baseStep.name} :: ${override.name}` : `${baseStep.name}${suffix ? ` ${suffix}` : ""}`;
-  ["method", "path", "url", "customHookRef", "body", "bodyFile", "bodyType", "auth", "expectedStatus", "retryCount", "pauseMs", "requestTimeoutMs"].forEach((key) => {
+  ["method", "path", "url", "customHookRef", "customHookName", "customHookCode", "body", "bodyFile", "bodyType", "auth", "expectedStatus", "retryCount", "pauseMs", "requestTimeoutMs"].forEach((key) => {
     if (override && override[key] != null && !isBlank(override[key])) merged[key] = override[key];
   });
   ["disableFollowRedirect", "disableUrlEncoding", "silent", "ignoreProtocolHeaders"].forEach((key) => {
@@ -933,7 +937,7 @@ function endpointTemplate(n) {
       <button type="button" class="ghost add-u mode-basic-hide">Upload</button>
       <button type="button" class="ghost add-cap mode-basic-hide">Capture</button>
     </div>
-    <details class="ep-section sec-request is-hidden mode-basic-hide"><summary>Request Options</summary><div><div class="grid"><div><label>Request Timeout (ms)</label><input class="timeout" type="number" value="" min="1"/></div><div><label><input class="disable-follow-redirect" type="checkbox"/> Disable Follow Redirect</label></div><div><label><input class="disable-url-encoding" type="checkbox"/> Disable URL Encoding</label></div><div><label><input class="silent-step" type="checkbox"/> Silent Request</label></div><div><label><input class="ignore-protocol-headers" type="checkbox"/> Ignore Protocol Headers</label></div><div class="mode-expert-only"><label>Custom Hook Class</label><input class="custom-hook-ref" placeholder="com.example.gatling.extensions.MyHook"/></div></div></div></details>
+    <details class="ep-section sec-request is-hidden mode-basic-hide"><summary>Request Options</summary><div><div class="grid"><div><label>Request Timeout (ms)</label><input class="timeout" type="number" value="" min="1"/></div><div><label><input class="disable-follow-redirect" type="checkbox"/> Disable Follow Redirect</label></div><div><label><input class="disable-url-encoding" type="checkbox"/> Disable URL Encoding</label></div><div><label><input class="silent-step" type="checkbox"/> Silent Request</label></div><div><label><input class="ignore-protocol-headers" type="checkbox"/> Ignore Protocol Headers</label></div><div class="mode-expert-only"><label>Custom Hook Class</label><input class="custom-hook-ref" placeholder="com.example.gatling.extensions.MyHook"/></div><div class="mode-expert-only"><label>Custom Hook Name (Generated)</label><input class="custom-hook-name" placeholder="StepLoginHook"/></div></div><label class="mode-expert-only">Custom Hook Java Code (before step)</label><textarea class="custom-hook-code mode-expert-only" placeholder="session = session.set(&quot;tokenSeed&quot;, java.util.UUID.randomUUID().toString());"></textarea></div></details>
     <details class="ep-section sec-auth is-hidden mode-basic-hide"><summary>Auth</summary><div><div class="grid"><div><label>Step Auth Type</label><select class="step-auth-type"><option value="">none</option><option value="bearer">bearer</option><option value="basic">basic</option><option value="header">header</option></select></div><div><label>Auth Param 1</label><input class="step-auth-p1" placeholder="token env / username env / header value env"/></div><div><label>Auth Param 2</label><input class="step-auth-p2" placeholder="password env"/></div><div><label>Header Name</label><input class="step-auth-header" placeholder="x-api-key"/></div></div></div></details>
     <details class="ep-section sec-payload is-hidden"><summary>Payload</summary><div><div class="grid"><div class="mode-basic-hide"><label>Body Type</label><select class="body-type"><option value="">auto/json</option><option value="json">json</option><option value="xml">xml</option><option value="text">text</option><option value="form">form</option><option value="multipart">multipart</option></select></div><div class="mode-basic-hide"><label>Body File</label><input class="body-file" placeholder="src/test/resources/bodies/request.json"/></div></div><div><label>Body (supports #{var})</label><textarea class="body"></textarea></div><div class="row mode-basic-hide"><label>Form Params</label><button class="ghost add-f" type="button">Add Form Param</button></div><table class="mode-basic-hide"><thead><tr><th>Name</th><th>Value</th><th>Action</th></tr></thead><tbody class="step-f"></tbody></table><div class="row mode-basic-hide"><label>Multipart Uploads</label><button class="ghost add-u" type="button">Add Upload</button></div><table class="mode-basic-hide"><thead><tr><th>Field Name</th><th>File Path</th><th>Action</th></tr></thead><tbody class="step-u"></tbody></table></div></details>
     <details class="ep-section sec-branching is-hidden mode-basic-hide"><summary>Branching And Fallback</summary><div><div class="small">Use branch rules to override the request when a saved session variable matches custom logic. The fallback request runs when no branch matches.</div><div class="row"><label>Branch Rules</label><button class="ghost add-branch" type="button">Add Branch Rule</button></div><table><thead><tr><th>Name</th><th>Variable</th><th>Operator</th><th>Value</th><th>Values CSV</th><th>Method</th><th>Path</th><th>Absolute URL</th><th>Status</th><th>Action</th></tr></thead><tbody class="step-branches"></tbody></table><div class="grid" style="margin-top:12px;"><div><label>Legacy Condition Variable</label><input class="cond-var" placeholder="savedVar"/></div><div><label>Legacy Condition Equals</label><input class="cond-eq" placeholder="expectedValue"/></div><div><label>Fallback Method</label><select class="else-method"><option value="">inherit/skip</option><option>GET</option><option>POST</option><option>PUT</option><option>PATCH</option><option>DELETE</option><option>HEAD</option><option>OPTIONS</option></select></div><div><label>Fallback Path</label><input class="else-path" placeholder="/fallback/path"/></div><div><label>Fallback Expected Status</label><input class="else-status" type="number" value=""/></div></div><div><label>Fallback Body</label><textarea class="else-body"></textarea></div></div></details>
@@ -963,7 +967,7 @@ function addEndpoint(container, data) {
   node.querySelectorAll(".add-c").forEach((btn) => btn.addEventListener("click", () => { ensureEndpointSection(node, "checks"); const x = document.createElement("tbody"); x.innerHTML = checkRowTemplate(); const r = x.firstElementChild; r.querySelector(".rm-c").addEventListener("click", () => { r.remove(); updateEndpointSummary(node); }); c.appendChild(r); updateEndpointSummary(node); }));
   node.querySelectorAll(".add-cap").forEach((btn) => btn.addEventListener("click", () => { ensureEndpointSection(node, "captures"); const x = document.createElement("tbody"); x.innerHTML = captureRowTemplate(); const r = x.firstElementChild; r.querySelector(".rm-cap").addEventListener("click", () => { r.remove(); updateEndpointSummary(node); }); cap.appendChild(r); updateEndpointSummary(node); }));
   if (data) {
-    node.querySelector(".name").value = data.name || ""; node.querySelector(".method").value = data.method || "GET"; node.querySelector(".path").value = data.path || ""; node.querySelector(".url").value = data.url || ""; node.querySelector(".status").value = data.expectedStatus || 200; node.querySelector(".retry").value = data.retryCount || 0; node.querySelector(".pause").value = data.pauseMs || 0; node.querySelector(".timeout").value = data.requestTimeoutMs || ""; node.querySelector(".custom-hook-ref").value = data.customHookRef || ""; node.querySelector(".body-type").value = data.bodyType || ""; node.querySelector(".body-file").value = data.bodyFile || ""; node.querySelector(".cond-var").value = data.condition ? data.condition.variable || "" : ""; node.querySelector(".cond-eq").value = data.condition ? (data.condition.value || data.condition.equals || "") : ""; node.querySelector(".else-method").value = data.elseMethod || ""; node.querySelector(".else-path").value = data.elsePath || ""; node.querySelector(".else-status").value = data.elseExpectedStatus == null ? "" : data.elseExpectedStatus; node.querySelector(".body").value = data.body || ""; node.querySelector(".else-body").value = data.elseBody || ""; node.querySelector(".step-auth-type").value = data.auth ? data.auth.type || "" : ""; node.querySelector(".step-auth-p1").value = data.auth ? data.auth.tokenEnv || data.auth.usernameEnv || data.auth.headerValueEnv || "" : ""; node.querySelector(".step-auth-p2").value = data.auth ? data.auth.passwordEnv || "" : ""; node.querySelector(".step-auth-header").value = data.auth ? data.auth.headerName || "" : ""; node.querySelector(".disable-follow-redirect").checked = data.disableFollowRedirect === true; node.querySelector(".disable-url-encoding").checked = data.disableUrlEncoding === true; node.querySelector(".silent-step").checked = data.silent === true; node.querySelector(".ignore-protocol-headers").checked = data.ignoreProtocolHeaders === true;
+    node.querySelector(".name").value = data.name || ""; node.querySelector(".method").value = data.method || "GET"; node.querySelector(".path").value = data.path || ""; node.querySelector(".url").value = data.url || ""; node.querySelector(".status").value = data.expectedStatus || 200; node.querySelector(".retry").value = data.retryCount || 0; node.querySelector(".pause").value = data.pauseMs || 0; node.querySelector(".timeout").value = data.requestTimeoutMs || ""; node.querySelector(".custom-hook-ref").value = data.customHookRef || ""; node.querySelector(".custom-hook-name").value = data.customHookName || ""; node.querySelector(".custom-hook-code").value = data.customHookCode || ""; node.querySelector(".body-type").value = data.bodyType || ""; node.querySelector(".body-file").value = data.bodyFile || ""; node.querySelector(".cond-var").value = data.condition ? data.condition.variable || "" : ""; node.querySelector(".cond-eq").value = data.condition ? (data.condition.value || data.condition.equals || "") : ""; node.querySelector(".else-method").value = data.elseMethod || ""; node.querySelector(".else-path").value = data.elsePath || ""; node.querySelector(".else-status").value = data.elseExpectedStatus == null ? "" : data.elseExpectedStatus; node.querySelector(".body").value = data.body || ""; node.querySelector(".else-body").value = data.elseBody || ""; node.querySelector(".step-auth-type").value = data.auth ? data.auth.type || "" : ""; node.querySelector(".step-auth-p1").value = data.auth ? data.auth.tokenEnv || data.auth.usernameEnv || data.auth.headerValueEnv || "" : ""; node.querySelector(".step-auth-p2").value = data.auth ? data.auth.passwordEnv || "" : ""; node.querySelector(".step-auth-header").value = data.auth ? data.auth.headerName || "" : ""; node.querySelector(".disable-follow-redirect").checked = data.disableFollowRedirect === true; node.querySelector(".disable-url-encoding").checked = data.disableUrlEncoding === true; node.querySelector(".silent-step").checked = data.silent === true; node.querySelector(".ignore-protocol-headers").checked = data.ignoreProtocolHeaders === true;
     Object.keys(data.headers || {}).forEach((k) => addHeaderRow(h, k, data.headers[k]));
     Object.keys(data.queryParams || {}).forEach((k) => addKeyValueRow(qParams, "q-key", "q-val", "tenant", "#{tenant}", k, data.queryParams[k]));
     Object.keys(data.formParams || {}).forEach((k) => addKeyValueRow(formParams, "f-key", "f-val", "status", "ACTIVE", k, data.formParams[k]));
@@ -1091,6 +1095,8 @@ function appFromUI() {
       const bodyFile = e.querySelector(".body-file").value.trim();
       const bodyType = e.querySelector(".body-type").value.trim();
       const customHookRef = (e.querySelector(".custom-hook-ref").value || "").trim();
+      const customHookName = (e.querySelector(".custom-hook-name").value || "").trim();
+      const customHookCode = (e.querySelector(".custom-hook-code").value || "");
       const requestTimeoutMs = Number(e.querySelector(".timeout").value || 0);
       const queryParams = parseKeyValueRows(e.querySelector(".step-q"), "q-key", "q-val");
       const formParams = parseKeyValueRows(e.querySelector(".step-f"), "f-key", "f-val");
@@ -1099,6 +1105,8 @@ function appFromUI() {
       if (!isBlank(bodyFile)) st.bodyFile = bodyFile;
       if (!isBlank(bodyType)) st.bodyType = bodyType;
       if (!isBlank(customHookRef)) st.customHookRef = customHookRef;
+      if (!isBlank(customHookName)) st.customHookName = customHookName;
+      if (!isBlank(customHookCode)) st.customHookCode = customHookCode;
       if (requestTimeoutMs > 0) st.requestTimeoutMs = requestTimeoutMs;
       if (Object.keys(queryParams).length) st.queryParams = queryParams;
       if (Object.keys(formParams).length) st.formParams = formParams;
@@ -1853,6 +1861,8 @@ function emitBranchYaml(indent, branch, lines) {
   if (!isBlank(branch.path)) lines.push(`${indent}  path: "${esc(branch.path)}"`);
   if (!isBlank(branch.url)) lines.push(`${indent}  url: "${esc(branch.url)}"`);
   if (!isBlank(branch.customHookRef)) lines.push(`${indent}  customHookRef: "${esc(branch.customHookRef)}"`);
+  if (!isBlank(branch.customHookName)) lines.push(`${indent}  customHookName: "${esc(branch.customHookName)}"`);
+  yamlValueLines(`${indent}  `, "customHookCode", branch.customHookCode, lines);
   if (branch.expectedStatus != null) lines.push(`${indent}  expectedStatus: ${branch.expectedStatus}`);
   yamlValueLines(`${indent}  `, "body", branch.body, lines);
   if (branch.checks && branch.checks.length) {
@@ -1938,6 +1948,8 @@ function emitYaml(plan) {
         if (!isBlank(step.path)) lines.push(`            path: "${esc(step.path || "")}"`);
         if (!isBlank(step.url)) lines.push(`            url: "${esc(step.url || "")}"`);
         if (!isBlank(step.customHookRef)) lines.push(`            customHookRef: "${esc(step.customHookRef)}"`);
+        if (!isBlank(step.customHookName)) lines.push(`            customHookName: "${esc(step.customHookName)}"`);
+        yamlValueLines("            ", "customHookCode", step.customHookCode, lines);
         if (step.expectedStatus != null) lines.push(`            expectedStatus: ${step.expectedStatus}`);
         if (step.retryCount != null) lines.push(`            retryCount: ${step.retryCount}`);
         if (step.pauseMs != null) lines.push(`            pauseMs: ${step.pauseMs}`);
@@ -2555,6 +2567,129 @@ function downloadGatlingScript() {
   a.click();
   URL.revokeObjectURL(a.href);
 }
+function sanitizeHookClassName(raw, fallbackName) {
+  const cleaned = String(raw || "")
+    .replace(/[^a-zA-Z0-9_]/g, "_")
+    .replace(/^_+|_+$/g, "");
+  const base = cleaned || fallbackName || "GeneratedHook";
+  return /^[0-9]/.test(base) ? `H_${base}` : base;
+}
+function buildGeneratedHookSource(className, codeSnippet) {
+  const body = String(codeSnippet || "").trim();
+  const safeBody = body || "session = session;";
+  return `package com.example.gatling.generated.hooks;
+
+import com.example.gatling.config.ConfigModels;
+import com.example.gatling.extensions.StepHookExtension;
+import io.gatling.javaapi.core.Session;
+
+public class ${className} implements StepHookExtension {
+    @Override
+    public Session before(Session session, ConfigModels.RequestStep step) {
+${safeBody.split("\n").map((line) => `        ${line}`).join("\n")}
+        return session;
+    }
+}
+`;
+}
+function encodeHookSourcesPayload(hookSources) {
+  if (!hookSources || !hookSources.length) return "";
+  return hookSources.map((item) => {
+    const b64 = btoa(unescape(encodeURIComponent(item.source || "")));
+    return `${item.className}|${b64}`;
+  }).join("\n");
+}
+function preparePlanForBackend(planInput) {
+  const plan = JSON.parse(JSON.stringify(planInput || {}));
+  const hookSources = [];
+  const used = new Set();
+  let counter = 1;
+  Object.entries(plan.applications || {}).forEach(([appName, app]) => {
+    (app.scenarios || []).forEach((scenario, scenarioIdx) => {
+      (scenario.steps || []).forEach((step, stepIdx) => {
+        if (!isBlank(step.customHookCode)) {
+          const fallback = `StepHook_${sanitizeHookClassName(appName)}_${scenarioIdx + 1}_${stepIdx + 1}_${counter++}`;
+          const className = sanitizeHookClassName(step.customHookName, fallback);
+          const unique = used.has(className) ? `${className}_${counter++}` : className;
+          used.add(unique);
+          const fqcn = `com.example.gatling.generated.hooks.${unique}`;
+          step.customHookRef = fqcn;
+          hookSources.push({ className: unique, source: buildGeneratedHookSource(unique, step.customHookCode) });
+        }
+        (step.branches || []).forEach((branch, branchIdx) => {
+          if (!isBlank(branch.customHookCode)) {
+            const fallback = `BranchHook_${sanitizeHookClassName(appName)}_${scenarioIdx + 1}_${stepIdx + 1}_${branchIdx + 1}_${counter++}`;
+            const className = sanitizeHookClassName(branch.customHookName, fallback);
+            const unique = used.has(className) ? `${className}_${counter++}` : className;
+            used.add(unique);
+            const fqcn = `com.example.gatling.generated.hooks.${unique}`;
+            branch.customHookRef = fqcn;
+            hookSources.push({ className: unique, source: buildGeneratedHookSource(unique, branch.customHookCode) });
+          }
+        });
+      });
+    });
+  });
+  return { plan, hookSources, hookSourcesPayload: encodeHookSourcesPayload(hookSources) };
+}
+async function compileCustomHooks(planInput) {
+  const apiBase = (q("runnerApiBase").value || "").replace(/\/$/, "");
+  if (!apiBase) {
+    alert("Runner API base URL is required.");
+    return;
+  }
+  const prep = preparePlanForBackend(planInput);
+  if (!prep.hookSources.length) {
+    realRunStatus.textContent = "No custom hook code found to compile.";
+    return;
+  }
+  const ok = await checkRunnerConnection();
+  if (!ok) return;
+  realRunStatus.textContent = "Compiling custom hooks...";
+  try {
+    const res = await fetch(`${apiBase}/api/hooks/compile`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ hookSourcesPayload: prep.hookSourcesPayload })
+    });
+    const raw = await res.text();
+    let data = null;
+    try { data = JSON.parse(raw); } catch (_) { data = { ok: false, error: raw }; }
+    if (!res.ok || !data.ok) {
+      realRunStatus.textContent = data.error || "Hook compile failed.";
+      detailPanel.textContent = data.output || data.error || raw;
+      return;
+    }
+    realRunStatus.textContent = data.message || "Custom hooks compiled successfully.";
+    detailPanel.textContent = data.output || "Hooks compiled.";
+  } catch (e) {
+    realRunStatus.textContent = "Failed to compile hooks.";
+    detailPanel.textContent = `Hook compile error: ${e && e.message ? e.message : "unknown"}`;
+  }
+}
+function loadHookExampleIntoCurrentStep() {
+  const firstStep = document.querySelector(".scenario .endpoint");
+  if (!firstStep) {
+    alert("Add at least one scenario and one API step first.");
+    return;
+  }
+  const hookName = firstStep.querySelector(".custom-hook-name");
+  const hookCode = firstStep.querySelector(".custom-hook-code");
+  const reqSection = firstStep.querySelector(".sec-request");
+  if (reqSection) {
+    reqSection.classList.remove("is-hidden");
+    reqSection.open = true;
+  }
+  if (hookName && !hookName.value.trim()) hookName.value = "DemoTraceHook";
+  if (hookCode && !hookCode.value.trim()) {
+    hookCode.value = [
+      "session = session.set(\"traceId\", java.util.UUID.randomUUID().toString());",
+      "session = session.set(\"demoFlag\", \"phase1\");"
+    ].join("\n");
+  }
+  updateEndpointSummary(firstStep);
+  realRunStatus.textContent = "Demo custom hook code loaded into first API step.";
+}
 async function runSavedPreviewSuite() {
   const plan = getSelectedSavedSuitePlan();
   if (!plan) return;
@@ -2630,7 +2765,8 @@ async function runRealLoadPlan(plan, sourceLabel) {
     alert("Please fix validation issues before running the real load.");
     return;
   }
-  const configYaml = emitYaml(plan);
+  const prepared = preparePlanForBackend(plan);
+  const configYaml = emitYaml(prepared.plan);
   if (configYaml == null) return;
   const ok = await checkRunnerConnection();
   if (!ok) return;
@@ -2640,7 +2776,7 @@ async function runRealLoadPlan(plan, sourceLabel) {
     const res = await fetch(`${apiBase}/api/run`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ configYaml })
+      body: JSON.stringify({ configYaml, hookSourcesPayload: prepared.hookSourcesPayload })
     });
     const raw = await res.text();
     let data;
@@ -2785,6 +2921,8 @@ q("downloadScriptBtn").addEventListener("click", downloadGatlingScript);
 q("validateBtn").addEventListener("click", () => showValidation(validateEnhancedPlan(collectEnhancedPlan())));
 q("startRunnerBtn").addEventListener("click", startRunnerFromUi);
 q("checkRunnerBtn").addEventListener("click", checkRunnerConnection);
+q("loadHookExampleBtn").addEventListener("click", loadHookExampleIntoCurrentStep);
+q("compileHooksBtn").addEventListener("click", () => compileCustomHooks(collectEnhancedPlan()));
 q("runRealBtn").addEventListener("click", runRealLoad);
 q("openGatlingReportBtn").addEventListener("click", openGatlingReport);
 q("saveSuiteBtn").addEventListener("click", saveCurrentSuite);

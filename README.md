@@ -280,3 +280,18 @@ steps:
     path: "/login"
     customHookRef: "com.example.gatling.extensions.TraceHook"
 ```
+
+### In-UI custom hook code (Phase 1)
+- Expert mode now supports writing Java hook code directly in the UI:
+  - Step-level: `Custom Hook Name (Generated)` + `Custom Hook Java Code (before step)`
+  - Branch-level: `Branch Hook Name (Generated)` + `Branch Hook Java Code (before step)`
+- Run flow:
+  1. UI generates Java files under `src/test/java/com/example/gatling/generated/hooks/`
+  2. Click **Compile Custom Hooks** (optional pre-check) or run real load directly
+  3. Backend compiles with `mvn test-compile` before Gatling execution
+
+Example snippet for `Custom Hook Java Code (before step)`:
+```java
+session = session.set("traceId", java.util.UUID.randomUUID().toString());
+session = session.set("tenant", "qa");
+```

@@ -20,6 +20,7 @@ import java.time.Instant;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -65,6 +66,7 @@ public final class UiGatewayServer {
         }
         server.createContext("/api/health", new HealthHandler());
         server.createContext("/api/run", new RunHandler());
+        server.createContext("/api/hooks/compile", new HookCompileHandler());
         server.createContext("/api/run/status", new RunStatusHandler());
         server.createContext("/reports/", new ReportFileHandler());
         server.setExecutor(Executors.newFixedThreadPool(4));
@@ -98,6 +100,7 @@ public final class UiGatewayServer {
 
             String body = readBody(exchange.getRequestBody());
             String yaml = extractJsonString(body, "configYaml");
+            String hookSourcesPayload = extractJsonString(body, "hookSourcesPayload");
             if (yaml == null || yaml.isBlank()) {
                 writeJson(exchange, 400, "{\"ok\":false,\"error\":\"configYaml is required\"}");
                 return;
@@ -111,6 +114,14 @@ public final class UiGatewayServer {
                     .format(Instant.now());
             Path configPath = runsDir.resolve("ui-config-" + runId + ".yaml");
             Files.writeString(configPath, yaml, StandardCharsets.UTF_8);
+            if (hookSourcesPayload != null && !hookSourcesPayload.isBlank()) {
+                try {
+                    writeHookSources(projectRoot, hookSourcesPayload);
+                } catch (IllegalArgumentException ex) {
+                    writeJson(exchange, 400, toJson(Map.of("ok", false, "error", ex.getMessage())));
+                    return;
+                }
+            }
 
             String jobId = UUID.randomUUID().toString();
             RunJob job = new RunJob(jobId, runId, projectRoot, configPath);
@@ -127,6 +138,42 @@ public final class UiGatewayServer {
             resp.put("state", job.state);
             resp.put("message", job.message);
             writeJson(exchange, 202, toJson(resp));
+        }
+    }
+
+    private static final class HookCompileHandler implements HttpHandler {
+        @Override
+        public void handle(HttpExchange exchange) throws IOException {
+            if ("OPTIONS".equalsIgnoreCase(exchange.getRequestMethod())) {
+                writeCors(exchange.getResponseHeaders());
+                exchange.sendResponseHeaders(204, -1);
+                return;
+            }
+            if (!"POST".equalsIgnoreCase(exchange.getRequestMethod())) {
+                writeJson(exchange, 405, "{\"ok\":false,\"error\":\"Method not allowed\"}");
+                return;
+            }
+            String body = readBody(exchange.getRequestBody());
+            String hookSourcesPayload = extractJsonString(body, "hookSourcesPayload");
+            if (hookSourcesPayload == null || hookSourcesPayload.isBlank()) {
+                writeJson(exchange, 400, "{\"ok\":false,\"error\":\"hookSourcesPayload is required\"}");
+                return;
+            }
+            try {
+                int written = writeHookSources(PROJECT_ROOT, hookSourcesPayload);
+                CommandResult result = runMaven(PROJECT_ROOT, List.of("test-compile"));
+                Map<String, Object> resp = new LinkedHashMap<>();
+                resp.put("ok", result.exitCode == 0);
+                resp.put("written", written);
+                resp.put("exitCode", result.exitCode);
+                resp.put("message", result.exitCode == 0 ? "Custom hooks compiled successfully." : "Custom hook compile failed.");
+                resp.put("output", tail(result.output, 12000));
+                writeJson(exchange, result.exitCode == 0 ? 200 : 400, toJson(resp));
+            } catch (IllegalArgumentException ex) {
+                writeJson(exchange, 400, toJson(Map.of("ok", false, "error", ex.getMessage())));
+            } catch (Exception ex) {
+                writeJson(exchange, 500, toJson(Map.of("ok", false, "error", ex.getMessage())));
+            }
         }
     }
 
@@ -190,6 +237,7 @@ public final class UiGatewayServer {
         String mvnCmd = resolveMavenCommand(job.projectRoot);
         List<String> cmd = new ArrayList<>();
         cmd.add(mvnCmd);
+        cmd.add("test-compile");
         cmd.add("-Dgatling.simulationClass=com.example.gatling.simulations.ConfigDrivenApiSimulation");
         cmd.add("-DconfigFile=" + job.configPath.toAbsolutePath().toString().replace("\\", "/"));
         cmd.add("gatling:test");
@@ -234,6 +282,56 @@ public final class UiGatewayServer {
             job.state = "error";
             job.message = "Failed to start or complete the Gatling run.";
         }
+    }
+
+    private static int writeHookSources(Path projectRoot, String payload) throws IOException {
+        Path baseDir = projectRoot.resolve("src").resolve("test").resolve("java")
+                .resolve("com").resolve("example").resolve("gatling").resolve("generated").resolve("hooks")
+                .toAbsolutePath().normalize();
+        Files.createDirectories(baseDir);
+        int written = 0;
+        for (String line : payload.split("\\r?\\n")) {
+            if (line == null || line.isBlank()) {
+                continue;
+            }
+            int sep = line.indexOf('|');
+            if (sep <= 0 || sep == line.length() - 1) {
+                throw new IllegalArgumentException("Invalid hookSourcesPayload format.");
+            }
+            String className = line.substring(0, sep).trim();
+            if (!className.matches("[A-Za-z_][A-Za-z0-9_]*")) {
+                throw new IllegalArgumentException("Invalid generated hook class name: " + className);
+            }
+            String b64 = line.substring(sep + 1).trim();
+            String source = new String(Base64.getDecoder().decode(b64), StandardCharsets.UTF_8);
+            Path javaFile = baseDir.resolve(className + ".java").normalize();
+            if (!javaFile.startsWith(baseDir)) {
+                throw new IllegalArgumentException("Unsafe hook path resolved for class: " + className);
+            }
+            Files.writeString(javaFile, source, StandardCharsets.UTF_8);
+            written++;
+        }
+        return written;
+    }
+
+    private static CommandResult runMaven(Path projectRoot, List<String> goals) throws IOException, InterruptedException {
+        String mvnCmd = resolveMavenCommand(projectRoot);
+        List<String> cmd = new ArrayList<>();
+        cmd.add(mvnCmd);
+        cmd.addAll(goals);
+        ProcessBuilder pb = new ProcessBuilder(cmd);
+        pb.directory(projectRoot.toFile());
+        pb.redirectErrorStream(true);
+        Process process = pb.start();
+        StringBuilder output = new StringBuilder();
+        try (BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream(), StandardCharsets.UTF_8))) {
+            String line;
+            while ((line = reader.readLine()) != null) {
+                output.append(line).append(System.lineSeparator());
+            }
+        }
+        int exit = process.waitFor();
+        return new CommandResult(exit, output.toString());
     }
 
     private static Properties loadUiConfig(Path projectRoot) {
@@ -939,6 +1037,16 @@ public final class UiGatewayServer {
             this.p99 = p99;
             this.max = max;
             this.mean = mean;
+        }
+    }
+
+    private static final class CommandResult {
+        private final int exitCode;
+        private final String output;
+
+        private CommandResult(int exitCode, String output) {
+            this.exitCode = exitCode;
+            this.output = output == null ? "" : output;
         }
     }
 }

@@ -313,6 +313,7 @@ public class ConfigDrivenApiSimulation extends Simulation {
         elseStep.method = step.elseMethod;
         elseStep.path = step.elsePath;
         elseStep.customHookRef = step.customHookRef;
+        elseStep.customHookName = step.customHookName;
         elseStep.headers = step.headers;
         elseStep.queryParams = step.queryParams;
         elseStep.formParams = step.formParams;
@@ -340,6 +341,7 @@ public class ConfigDrivenApiSimulation extends Simulation {
         copy.path = source.path;
         copy.url = source.url;
         copy.customHookRef = source.customHookRef;
+        copy.customHookName = source.customHookName;
         copy.headers = copyMap(source.headers);
         copy.queryParams = copyMap(source.queryParams);
         copy.formParams = copyMap(source.formParams);
@@ -382,6 +384,9 @@ public class ConfigDrivenApiSimulation extends Simulation {
         }
         if (!isBlank(branch.customHookRef)) {
             merged.customHookRef = branch.customHookRef;
+        }
+        if (!isBlank(branch.customHookName)) {
+            merged.customHookName = branch.customHookName;
         }
         if (branch.headers != null && !branch.headers.isEmpty()) {
             merged.headers = copyMap(parent.headers);
@@ -457,7 +462,11 @@ public class ConfigDrivenApiSimulation extends Simulation {
 
     private StepHookExtension resolveStepHook(ConfigModels.RequestStep step) {
         if (step == null || isBlank(step.customHookRef)) {
-            return null;
+            if (step == null || isBlank(step.customHookName)) {
+                return null;
+            }
+            String generatedRef = "com.example.gatling.generated.hooks." + step.customHookName.trim();
+            return stepHookCache.computeIfAbsent(generatedRef, this::instantiateHook);
         }
         return stepHookCache.computeIfAbsent(step.customHookRef, this::instantiateHook);
     }
