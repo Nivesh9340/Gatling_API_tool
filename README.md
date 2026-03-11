@@ -237,3 +237,28 @@ Build a full release bundle (precheck + package + checksum):
 ```bat
 build-release.bat
 ```
+
+## Branching and fallback in UI (updated)
+- Each API step supports multiple `branches` and one final fallback.
+- Branch rules are evaluated in order (top to bottom); the first matching rule is executed.
+- If no branch matches, the fallback request runs when configured (`elseMethod` + `elsePath` in legacy form, or `fallback` in YAML).
+- If no branch matches and no fallback is configured, the base API step request is used.
+
+### Branch-level checks and captures
+- Each branch can now define its own `checks`.
+- Each branch can now define its own `captures`.
+- Branch checks/captures override base step checks/captures for that branch execution path.
+
+### How to configure in the UI
+1. Open an API step, expand **Branching And Fallback**.
+2. Click **Add Branch Rule** for each condition.
+3. Fill `Variable`, `Operator`, `Value`/`Values CSV`, and branch method/path/url/status overrides.
+4. Under the same branch, add **Branch Checks** and **Branch Captures** as needed.
+5. Configure fallback (`Fallback Method`, `Fallback Path`, optional status/body) for unmatched requests.
+6. Save/export YAML and verify generated `branches[].checks` and `branches[].captures`.
+
+### Example logic pattern
+- `if tier == premium` -> `/orders/premium/#{orderId}`
+- `else if tier == vip` -> `/orders/vip/#{orderId}`
+- `else if tier == trial` -> `/orders/trial/#{orderId}`
+- `else` -> `/orders/standard/#{orderId}`

@@ -383,28 +383,119 @@ function branchRowTemplate(branch = {}) {
     <td><input class="branch-status" type="number" value="${branch.expectedStatus == null ? "" : branch.expectedStatus}" placeholder="200"/></td>
     <td><button class="danger rm-branch" type="button">Remove</button></td>
   </tr>
-  <tr class="branch-row branch-row-body">
+  <tr class="branch-row-body">
     <td colspan="10"><label>Branch Body Override</label><textarea class="branch-body" placeholder="optional branch-specific body">${branch.body || ""}</textarea></td>
+  </tr>
+  <tr class="branch-row-checks">
+    <td colspan="10">
+      <div class="row">
+        <label>Branch Checks</label>
+        <button class="ghost add-branch-check" type="button">Add Check</button>
+      </div>
+      <table>
+        <thead><tr><th>Type</th><th>Path</th><th>Value</th><th>Action</th></tr></thead>
+        <tbody class="branch-checks-body"></tbody>
+      </table>
+    </td>
+  </tr>
+  <tr class="branch-row-captures">
+    <td colspan="10">
+      <div class="row">
+        <label>Branch Captures</label>
+        <button class="ghost add-branch-capture" type="button">Add Capture</button>
+      </div>
+      <table>
+        <thead><tr><th>Type</th><th>Path</th><th>SaveAs</th><th>Action</th></tr></thead>
+        <tbody class="branch-captures-body"></tbody>
+      </table>
+    </td>
   </tr>`;
 }
-function addBranchRow(target, branch = {}) {
+function branchCheckRowTemplate() {
+  return `<tr><td><select class="branch-c-type"><option value="bodyContains">bodyContains</option><option value="regex">regex</option><option value="jsonPathExists">jsonPathExists</option><option value="jsonPathEquals">jsonPathEquals</option><option value="headerExists">headerExists</option><option value="headerEquals">headerEquals</option><option value="bodyLengthGt">bodyLengthGt</option><option value="jmesPathExists">jmesPathExists</option><option value="jmesPathEquals">jmesPathEquals</option><option value="statusIn">statusIn</option></select></td><td><input class="branch-c-path" placeholder="$.id or Header-Name"/></td><td><input class="branch-c-value" placeholder="value / regex / 200,201"/></td><td><button class="danger rm-branch-check" type="button">Remove</button></td></tr>`;
+}
+function branchCaptureRowTemplate() {
+  return `<tr><td><select class="branch-cap-type"><option value="jsonPath">jsonPath</option><option value="header">header</option><option value="regex">regex</option></select></td><td><input class="branch-cap-path" placeholder="$.id / Header-Name / regex"/></td><td><input class="branch-cap-save" placeholder="savedId"/></td><td><button class="danger rm-branch-capture" type="button">Remove</button></td></tr>`;
+}
+function addBranchCheckRow(target, data = {}, onChange = () => {}) {
+  const holder = document.createElement("tbody");
+  holder.innerHTML = branchCheckRowTemplate();
+  const row = holder.firstElementChild;
+  row.querySelector(".branch-c-type").value = data.type || "bodyContains";
+  row.querySelector(".branch-c-path").value = data.path || "";
+  row.querySelector(".branch-c-value").value = data.value || "";
+  row.querySelector(".rm-branch-check").addEventListener("click", () => { row.remove(); onChange(); });
+  target.appendChild(row);
+  onChange();
+}
+function addBranchCaptureRow(target, data = {}, onChange = () => {}) {
+  const holder = document.createElement("tbody");
+  holder.innerHTML = branchCaptureRowTemplate();
+  const row = holder.firstElementChild;
+  row.querySelector(".branch-cap-type").value = data.type || "jsonPath";
+  row.querySelector(".branch-cap-path").value = data.path || "";
+  row.querySelector(".branch-cap-save").value = data.saveAs || "";
+  row.querySelector(".rm-branch-capture").addEventListener("click", () => { row.remove(); onChange(); });
+  target.appendChild(row);
+  onChange();
+}
+function parseBranchChecks(target) {
+  const out = [];
+  (target || document.createElement("tbody")).querySelectorAll("tr").forEach((r) => {
+    const type = (r.querySelector(".branch-c-type") || {}).value || "";
+    const path = ((r.querySelector(".branch-c-path") || {}).value || "").trim();
+    const value = ((r.querySelector(".branch-c-value") || {}).value || "").trim();
+    if (!isBlank(type)) {
+      const check = { type };
+      if (!isBlank(path)) check.path = path;
+      if (!isBlank(value)) check.value = value;
+      out.push(check);
+    }
+  });
+  return out;
+}
+function parseBranchCaptures(target) {
+  const out = [];
+  (target || document.createElement("tbody")).querySelectorAll("tr").forEach((r) => {
+    const type = (r.querySelector(".branch-cap-type") || {}).value || "";
+    const path = ((r.querySelector(".branch-cap-path") || {}).value || "").trim();
+    const saveAs = ((r.querySelector(".branch-cap-save") || {}).value || "").trim();
+    if (!isBlank(type) && !isBlank(path) && !isBlank(saveAs)) out.push({ type, path, saveAs });
+  });
+  return out;
+}
+function addBranchRow(target, branch = {}, onChange = () => {}) {
   const wrapper = document.createElement("tbody");
   wrapper.innerHTML = branchRowTemplate(branch);
   const rows = [...wrapper.children];
+  const checksBody = wrapper.querySelector(".branch-checks-body");
+  const capturesBody = wrapper.querySelector(".branch-captures-body");
   rows.forEach((row) => {
     const removeBtn = row.querySelector(".rm-branch");
     if (removeBtn) {
-      removeBtn.addEventListener("click", () => rows.forEach((item) => item.remove()));
+      removeBtn.addEventListener("click", () => { rows.forEach((item) => item.remove()); onChange(); });
     }
+    const addCheckBtn = row.querySelector(".add-branch-check");
+    if (addCheckBtn && checksBody) addCheckBtn.addEventListener("click", () => addBranchCheckRow(checksBody, {}, onChange));
+    const addCaptureBtn = row.querySelector(".add-branch-capture");
+    if (addCaptureBtn && capturesBody) addCaptureBtn.addEventListener("click", () => addBranchCaptureRow(capturesBody, {}, onChange));
     target.appendChild(row);
   });
+  (branch.checks || []).forEach((check) => addBranchCheckRow(checksBody, check, onChange));
+  (branch.captures || []).forEach((capture) => addBranchCaptureRow(capturesBody, capture, onChange));
 }
 function parseBranches(target) {
   const out = [];
-  const rows = [...target.querySelectorAll(".branch-row")].filter((row) => !row.classList.contains("branch-row-body"));
+  const rows = [...target.querySelectorAll(".branch-row")];
   rows.forEach((row) => {
     const bodyRow = row.nextElementSibling && row.nextElementSibling.classList.contains("branch-row-body")
       ? row.nextElementSibling
+      : null;
+    const checksRow = bodyRow && bodyRow.nextElementSibling && bodyRow.nextElementSibling.classList.contains("branch-row-checks")
+      ? bodyRow.nextElementSibling
+      : null;
+    const capturesRow = checksRow && checksRow.nextElementSibling && checksRow.nextElementSibling.classList.contains("branch-row-captures")
+      ? checksRow.nextElementSibling
       : null;
     const operator = ((row.querySelector(".branch-op") || {}).value || "equals").trim();
     const value = ((row.querySelector(".branch-value") || {}).value || "").trim();
@@ -423,11 +514,15 @@ function parseBranches(target) {
     const url = ((row.querySelector(".branch-url") || {}).value || "").trim();
     const status = ((row.querySelector(".branch-status") || {}).value || "").trim();
     const body = ((bodyRow && bodyRow.querySelector(".branch-body")) || {}).value || "";
+    const checks = parseBranchChecks((checksRow && checksRow.querySelector(".branch-checks-body")) || null);
+    const captures = parseBranchCaptures((capturesRow && capturesRow.querySelector(".branch-captures-body")) || null);
     if (!isBlank(method)) branch.method = method;
     if (!isBlank(path)) branch.path = path;
     if (!isBlank(url)) branch.url = url;
     if (!isBlank(status)) branch.expectedStatus = Number(status);
     if (!isBlank(body)) branch.body = body;
+    if (checks.length) branch.checks = checks;
+    if (captures.length) branch.captures = captures;
     if (!isBlank(branch.when.variable)) out.push(branch);
   });
   return out;
@@ -858,7 +953,7 @@ function addEndpoint(container, data) {
   node.querySelector(".show-auth").addEventListener("click", () => ensureEndpointSection(node, "auth"));
   node.querySelector(".show-payload").addEventListener("click", () => ensureEndpointSection(node, "payload"));
   node.querySelector(".show-branching").addEventListener("click", () => ensureEndpointSection(node, "branching"));
-  node.querySelectorAll(".add-branch").forEach((btn) => btn.addEventListener("click", () => { ensureEndpointSection(node, "branching"); addBranchRow(branches); updateEndpointSummary(node); }));
+  node.querySelectorAll(".add-branch").forEach((btn) => btn.addEventListener("click", () => { ensureEndpointSection(node, "branching"); addBranchRow(branches, {}, () => updateEndpointSummary(node)); updateEndpointSummary(node); }));
   node.querySelectorAll(".add-h").forEach((btn) => btn.addEventListener("click", () => { ensureEndpointSection(node, "headers"); addHeaderRow(h); updateEndpointSummary(node); }));
   node.querySelectorAll(".add-q").forEach((btn) => btn.addEventListener("click", () => { ensureEndpointSection(node, "query"); addKeyValueRow(qParams, "q-key", "q-val", "tenant", "#{tenant}"); updateEndpointSummary(node); }));
   node.querySelectorAll(".add-f").forEach((btn) => btn.addEventListener("click", () => { ensureEndpointSection(node, "payload"); addKeyValueRow(formParams, "f-key", "f-val", "status", "ACTIVE"); updateEndpointSummary(node); }));
@@ -871,7 +966,7 @@ function addEndpoint(container, data) {
     Object.keys(data.queryParams || {}).forEach((k) => addKeyValueRow(qParams, "q-key", "q-val", "tenant", "#{tenant}", k, data.queryParams[k]));
     Object.keys(data.formParams || {}).forEach((k) => addKeyValueRow(formParams, "f-key", "f-val", "status", "ACTIVE", k, data.formParams[k]));
     (data.formUploads || []).forEach((x) => addUploadRow(uploads, x.fieldName || "", x.filePath || ""));
-    (data.branches || []).forEach((x) => addBranchRow(branches, x));
+    (data.branches || []).forEach((x) => addBranchRow(branches, x, () => updateEndpointSummary(node)));
     (data.checks || []).forEach((x) => { const t = document.createElement("tbody"); t.innerHTML = checkRowTemplate(); const r = t.firstElementChild; r.querySelector(".c-type").value = x.type || "bodyContains"; r.querySelector(".c-path").value = x.path || ""; r.querySelector(".c-value").value = x.value || ""; r.querySelector(".rm-c").addEventListener("click", () => r.remove()); c.appendChild(r); });
     (data.captures || []).forEach((x) => { const t = document.createElement("tbody"); t.innerHTML = captureRowTemplate(); const r = t.firstElementChild; r.querySelector(".cap-type").value = x.type || "jsonPath"; r.querySelector(".cap-path").value = x.path || ""; r.querySelector(".cap-save").value = x.saveAs || ""; r.querySelector(".rm-cap").addEventListener("click", () => r.remove()); cap.appendChild(r); });
   }
@@ -1755,6 +1850,22 @@ function emitBranchYaml(indent, branch, lines) {
   if (!isBlank(branch.url)) lines.push(`${indent}  url: "${esc(branch.url)}"`);
   if (branch.expectedStatus != null) lines.push(`${indent}  expectedStatus: ${branch.expectedStatus}`);
   yamlValueLines(`${indent}  `, "body", branch.body, lines);
+  if (branch.checks && branch.checks.length) {
+    lines.push(`${indent}  checks:`);
+    branch.checks.forEach((check) => {
+      lines.push(`${indent}    - type: "${esc(check.type || "")}"`);
+      if (!isBlank(check.path)) lines.push(`${indent}      path: "${esc(check.path)}"`);
+      if (check.value != null && !isBlank(check.value)) lines.push(`${indent}      value: "${esc(check.value)}"`);
+    });
+  }
+  if (branch.captures && branch.captures.length) {
+    lines.push(`${indent}  captures:`);
+    branch.captures.forEach((capture) => {
+      lines.push(`${indent}    - type: "${esc(capture.type || "")}"`);
+      if (!isBlank(capture.path)) lines.push(`${indent}      path: "${esc(capture.path)}"`);
+      if (!isBlank(capture.saveAs)) lines.push(`${indent}      saveAs: "${esc(capture.saveAs)}"`);
+    });
+  }
 }
 
 function emitYaml(plan) {
