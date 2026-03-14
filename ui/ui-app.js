@@ -625,7 +625,22 @@ function refreshEndpointLayout(node) {
   const uploads = node.querySelector(".step-u");
   const c = node.querySelector(".step-c");
   const cap = node.querySelector(".step-cap");
-  maybeHideEndpointSection(node, "request", !!((node.querySelector(".timeout").value || "").trim() || node.querySelector(".disable-follow-redirect").checked || node.querySelector(".disable-url-encoding").checked || node.querySelector(".silent-step").checked || node.querySelector(".ignore-protocol-headers").checked));
+  const requestSection = node.querySelector(".sec-request");
+  const requestHasContent = !!(
+    (node.querySelector(".timeout").value || "").trim()
+    || node.querySelector(".disable-follow-redirect").checked
+    || node.querySelector(".disable-url-encoding").checked
+    || node.querySelector(".silent-step").checked
+    || node.querySelector(".ignore-protocol-headers").checked
+    || !isBlank((node.querySelector(".custom-hook-ref") || {}).value)
+    || !isBlank((node.querySelector(".custom-hook-name") || {}).value)
+    || !isBlank((node.querySelector(".custom-hook-code") || {}).value)
+  );
+  maybeHideEndpointSection(
+    node,
+    "request",
+    requestHasContent || !!(requestSection && requestSection.open)
+  );
   maybeHideEndpointSection(node, "auth", !isBlank((node.querySelector(".step-auth-type") || {}).value));
   maybeHideEndpointSection(node, "payload", !isBlank((node.querySelector(".body") || {}).value) || !isBlank((node.querySelector(".body-file") || {}).value) || !isBlank((node.querySelector(".body-type") || {}).value) || !!formParams.querySelector("tr") || !!uploads.querySelector("tr"));
   maybeHideEndpointSection(node, "branching", !!node.querySelector(".step-branches .branch-row") || !isBlank((node.querySelector(".cond-var") || {}).value) || !isBlank((node.querySelector(".else-method") || {}).value) || !isBlank((node.querySelector(".else-body") || {}).value));
